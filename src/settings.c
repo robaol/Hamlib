@@ -37,16 +37,10 @@
 #  include "config.h"
 #endif
 
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 
 #include <hamlib/rig.h>
-#include <hamlib/amplifier.h>
 #include "cal.h"
 
 
@@ -68,8 +62,8 @@
  * The level value \a val can be a float or an integer. See #value_t
  * for more information.
  *
- * \return RIG_OK if the operation has been sucessful, otherwise
- * a negative value if an error occured (in which case, cause is
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
  * set appropriately).
  *
  * \sa rig_has_set_level(), rig_get_level()
@@ -94,7 +88,7 @@ int HAMLIB_API rig_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         return -RIG_ENAVAIL;
     }
 
-    if ((caps->targetable_vfo & RIG_TARGETABLE_PURE)
+    if ((caps->targetable_vfo & RIG_TARGETABLE_LEVEL)
             || vfo == RIG_VFO_CURR
             || vfo == rig->state.current_vfo)
     {
@@ -135,11 +129,11 @@ int HAMLIB_API rig_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
  *      level in dB relative to S9, according to the ideal S Meter scale.
  *      The ideal S Meter scale is as follow: S0=-54, S1=-48, S2=-42, S3=-36,
  *      S4=-30, S5=-24, S6=-18, S7=-12, S8=-6, S9=0, +10=10, +20=20,
- *      +30=30, +40=40, +50=50 and +60=60. This is the responsability
+ *      +30=30, +40=40, +50=50 and +60=60. This is the responsibility
  *      of the backend to return values calibrated for this scale.
  *
- * \return RIG_OK if the operation has been sucessful, otherwise
- * a negative value if an error occured (in which case, cause is
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
  * set appropriately).
  *
  * \sa rig_has_get_level(), rig_set_level()
@@ -188,7 +182,7 @@ int HAMLIB_API rig_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     }
 
 
-    if ((caps->targetable_vfo & RIG_TARGETABLE_PURE)
+    if ((caps->targetable_vfo & RIG_TARGETABLE_LEVEL)
             || vfo == RIG_VFO_CURR
             || vfo == rig->state.current_vfo)
     {
@@ -225,8 +219,8 @@ int HAMLIB_API rig_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
  *  The parameter value \a val can be a float or an integer. See #value_t
  *  for more information.
  *
- * \return RIG_OK if the operation has been sucessful, otherwise
- * a negative value if an error occured (in which case, cause is
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
  * set appropriately).
  *
  * \sa rig_has_set_parm(), rig_get_parm()
@@ -259,8 +253,8 @@ int HAMLIB_API rig_set_parm(RIG *rig, setting_t parm, value_t val)
  *  The parameter value \a val can be a float or an integer. See #value_t
  *  for more information.
  *
- * \return RIG_OK if the operation has been sucessful, otherwise
- * a negative value if an error occured (in which case, cause is
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
  * set appropriately).
  *
  * \sa rig_has_get_parm(), rig_set_parm()
@@ -310,35 +304,6 @@ setting_t HAMLIB_API rig_has_get_level(RIG *rig, setting_t level)
     }
 
     return (rig->state.has_get_level & level);
-}
-
-
-/**
- * \brief check retrieval ability of level settings
- * \param amp   The amp handle
- * \param level The level settings
- *
- *  Checks if an amp is capable of *getting* a level setting.
- *  Since the \a level is an OR'ed bitwise argument, more than
- *  one level can be checked at the same time.
- *
- *  EXAMPLE: if (amp_has_get_level(my_amp, AMP_LVL_SWR)) disp_SWR();
- *
- * \return a bit map of supported level settings that can be retrieved,
- * otherwise 0 if none supported.
- *
- * \sa amp_has_set_level(), amp_get_level()
- */
-setting_t HAMLIB_API amp_has_get_level(AMP *amp, setting_t level)
-{
-    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
-
-    if (!amp || !amp->caps)
-    {
-        return 0;
-    }
-
-    return (amp->state.has_get_level & level);
 }
 
 
@@ -501,8 +466,8 @@ setting_t HAMLIB_API rig_has_set_func(RIG *rig, setting_t func)
  * The \a status argument is a non null value for "activate",
  * "de-activate" otherwise, much as TRUE/FALSE definitions in C language.
  *
- * \return RIG_OK if the operation has been sucessful, otherwise
- * a negative value if an error occured (in which case, cause is
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
  * set appropriately).
  *
  * \sa rig_get_func()
@@ -533,6 +498,12 @@ int HAMLIB_API rig_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
     {
 
         return caps->set_func(rig, vfo, func, status);
+    }
+    else
+    {
+        int targetable = caps->targetable_vfo & RIG_TARGETABLE_FUNC;
+        rig_debug(RIG_DEBUG_TRACE, "%s: targetable=%d, vfo=%s, currvfo=%s\n", __func__,
+                  targetable, rig_strvfo(vfo), rig_strvfo(rig->state.current_vfo));
     }
 
     if (!caps->set_vfo)
@@ -568,8 +539,8 @@ int HAMLIB_API rig_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
  *  value for "on", "off" otherwise, much as TRUE/FALSE
  *  definitions in C language.
  *
- * \return RIG_OK if the operation has been sucessful, otherwise
- * a negative value if an error occured (in which case, cause is
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
  * set appropriately).
  *
  * \sa rig_set_func()
@@ -632,8 +603,8 @@ int HAMLIB_API rig_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
  *
  *  Sets an level extra parameter.
  *
- * \return RIG_OK if the operation has been sucessful, otherwise
- * a negative value if an error occured (in which case, cause is
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
  * set appropriately).
  *
  * \sa rig_get_ext_level()
@@ -661,7 +632,7 @@ int HAMLIB_API rig_set_ext_level(RIG *rig,
         return -RIG_ENAVAIL;
     }
 
-    if ((caps->targetable_vfo & RIG_TARGETABLE_PURE)
+    if ((caps->targetable_vfo & RIG_TARGETABLE_LEVEL)
             || vfo == RIG_VFO_CURR
             || vfo == rig->state.current_vfo)
     {
@@ -698,8 +669,8 @@ int HAMLIB_API rig_set_ext_level(RIG *rig,
  *
  *  Retrieves the value of a level extra parameter associated with \a token.
  *
- * \return RIG_OK if the operation has been sucessful, otherwise
- * a negative value if an error occured (in which case, cause is
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
  * set appropriately).
  *
  * \sa rig_set_ext_level()
@@ -727,7 +698,7 @@ int HAMLIB_API rig_get_ext_level(RIG *rig,
         return -RIG_ENAVAIL;
     }
 
-    if ((caps->targetable_vfo & RIG_TARGETABLE_PURE)
+    if ((caps->targetable_vfo & RIG_TARGETABLE_LEVEL)
             || vfo == RIG_VFO_CURR
             || vfo == rig->state.current_vfo)
     {
@@ -763,8 +734,8 @@ int HAMLIB_API rig_get_ext_level(RIG *rig,
  *
  *  Sets a function extra parameter.
  *
- * \return RIG_OK if the operation has been sucessful, otherwise
- * a negative value if an error occured (in which case, cause is
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
  * set appropriately).
  *
  * \sa rig_get_ext_func()
@@ -787,12 +758,12 @@ int HAMLIB_API rig_set_ext_func(RIG *rig,
 
     caps = rig->caps;
 
-    if (caps->set_ext_level == NULL)
+    if (caps->set_ext_func == NULL)
     {
         return -RIG_ENAVAIL;
     }
 
-    if ((caps->targetable_vfo & RIG_TARGETABLE_PURE)
+    if ((caps->targetable_vfo & RIG_TARGETABLE_FUNC)
             || vfo == RIG_VFO_CURR
             || vfo == rig->state.current_vfo)
     {
@@ -829,8 +800,8 @@ int HAMLIB_API rig_set_ext_func(RIG *rig,
  *
  *  Retrieves the value of a function extra parameter associated with \a token.
  *
- * \return RIG_OK if the operation has been sucessful, otherwise
- * a negative value if an error occured (in which case, cause is
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
  * set appropriately).
  *
  * \sa rig_set_ext_func()
@@ -858,7 +829,7 @@ int HAMLIB_API rig_get_ext_func(RIG *rig,
         return -RIG_ENAVAIL;
     }
 
-    if ((caps->targetable_vfo & RIG_TARGETABLE_PURE)
+    if ((caps->targetable_vfo & RIG_TARGETABLE_FUNC)
             || vfo == RIG_VFO_CURR
             || vfo == rig->state.current_vfo)
     {
@@ -894,8 +865,8 @@ int HAMLIB_API rig_get_ext_func(RIG *rig,
  *
  *  Sets an parm extra parameter.
  *
- * \return RIG_OK if the operation has been sucessful, otherwise
- * a negative value if an error occured (in which case, cause is
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
  * set appropriately).
  *
  * \sa rig_get_ext_parm()
@@ -926,8 +897,8 @@ int HAMLIB_API rig_set_ext_parm(RIG *rig, token_t token, value_t val)
  *
  *  Retrieves the value of a parm extra parameter associated with \a token.
  *
- * \return RIG_OK if the operation has been sucessful, otherwise
- * a negative value if an error occured (in which case, cause is
+ * \return RIG_OK if the operation has been successful, otherwise
+ * a negative value if an error occurred (in which case, cause is
  * set appropriately).
  *
  * \sa rig_set_ext_parm()
@@ -969,6 +940,7 @@ int HAMLIB_API rig_setting2idx(setting_t s)
     {
         if (s & rig_idx2setting(i))
         {
+            rig_debug(RIG_DEBUG_VERBOSE, "%s: idx=%d\n", __func__, i);
             return i;
         }
     }

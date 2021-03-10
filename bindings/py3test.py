@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 import sys
+# Change this path to match your "make install" path
+sys.path.append('/usr/local/lib/python3.8/site-packages')
 
 ## Uncomment to run this script from an in-tree build (or adjust to the
 ## build directory) without installing the bindings.
@@ -25,15 +26,12 @@ def StartUp():
 
     my_rig.open ()
 
-    # 1073741944 is token value for "itu_region"
-    # but using get_conf is much more convenient
-    region = my_rig.get_conf(1073741944)
     rpath = my_rig.get_conf("rig_pathname")
     retry = my_rig.get_conf("retry")
 
     print("status(str):\t\t%s" % Hamlib.rigerror(my_rig.error_status))
-    print("get_conf:\t\tpath = %s, retry = %s, ITU region = %s" \
-          % (rpath, retry, region))
+    print("get_conf:\t\tpath = %s, retry = %s" \
+          % (rpath, retry))
 
     my_rig.set_freq(Hamlib.RIG_VFO_B, 5700000000)
     my_rig.set_vfo(Hamlib.RIG_VFO_B)
@@ -41,7 +39,7 @@ def StartUp():
     print("freq:\t\t\t%s" % my_rig.get_freq())
 
     my_rig.set_freq(Hamlib.RIG_VFO_A, 145550000)
-    (mode, width) = my_rig.get_mode()
+    (mode, width) = my_rig.get_mode(Hamlib.RIG_VFO_A)
 
     print("mode:\t\t\t%s\nbandwidth:\t\t%s" % (Hamlib.rig_strrmode(mode), width))
 
@@ -50,7 +48,6 @@ def StartUp():
 
     print("mode:\t\t\t%s\nbandwidth:\t\t%s" % (Hamlib.rig_strrmode(mode), width))
 
-    print("ITU_region:\t\t%s" % my_rig.state.itu_region)
     print("Backend copyright:\t%s" % my_rig.caps.copyright)
     print("Model:\t\t\t%s" % my_rig.caps.model_name)
     print("Manufacturer:\t\t%s" % my_rig.caps.mfg_name)
@@ -86,6 +83,9 @@ def StartUp():
     print("get_channel status:\t%s" % my_rig.error_status)
     print("VFO:\t\t\t%s, %s" % (Hamlib.rig_strvfo(chan.vfo), chan.freq))
     print("Attenuators:\t\t%s" % my_rig.caps.attenuator)
+    # Can't seem to get get_vfo_info to work
+    #(freq, width, mode, split) = my_rig.get_vfo_info(Hamlib.RIG_VFO_A,freq,width,mode,split)
+    #print("Rig vfo_info:\t\tfreq=%s, mode=%s, width=%s, split=%s" % (freq, mode, width, split))
     print("\nSending Morse, '73'")
 
     my_rig.send_morse(Hamlib.RIG_VFO_A, "73")

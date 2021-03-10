@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
     int model;
     int baud;
     int loops;
-    int cache_timeout;
+    int cache_timeout = 500;
     int i;
     struct timespec start, startall;
 
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
     /* Set up serial port, baud rate */
     rig_file = argv[2];        // your serial device
 
-    strncpy(my_rig->state.rigport.pathname, rig_file, FILPATHLEN - 1);
+    strncpy(my_rig->state.rigport.pathname, rig_file, HAMLIB_FILPATHLEN - 1);
 
     my_rig->state.rigport.parm.serial.rate = baud; // your baud rate
 
@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    rig_set_cache_timeout_ms(my_rig, CACHE_ALL, cache_timeout);
+    rig_set_cache_timeout_ms(my_rig, HAMLIB_CACHE_ALL, cache_timeout);
     /* Give me ID info, e.g., firmware version. */
     info_buf = (char *)rig_get_info(my_rig);
 
@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
         printf("Rig_info: '%s'\n", info_buf);
     }
 
-    elapsed_ms(&startall, ELAPSED_SET);
+    elapsed_ms(&startall, HAMLIB_ELAPSED_SET);
 
     for (i = 0; i < loops; ++i)
     {
@@ -111,48 +111,54 @@ int main(int argc, char *argv[])
         ptt_t ptt;
         split_t split;
 
-        elapsed_ms(&start, ELAPSED_SET);
+        elapsed_ms(&start, HAMLIB_ELAPSED_SET);
 
         retcode = rig_get_vfo(my_rig, &vfo);
 
         if (retcode != RIG_OK) { printf("Get vfo failed?? Err=%s\n", rigerror(retcode)); }
 
-        printf("%4dms: VFO = %s\n", elapsed_ms(&start, ELAPSED_GET), rig_strvfo(vfo));
+        printf("%4dms: VFO = %s\n", (int)elapsed_ms(&start, HAMLIB_ELAPSED_GET),
+               rig_strvfo(vfo));
 
-        elapsed_ms(&start, ELAPSED_SET);
+        elapsed_ms(&start, HAMLIB_ELAPSED_SET);
         retcode = rig_get_freq(my_rig, RIG_VFO_CURR, &freq);
 
         if (retcode != RIG_OK) { printf("Get freq failed?? Err=%s\n", rigerror(retcode)); }
 
-        printf("%4dms: VFO freq. = %.1f Hz\n", elapsed_ms(&start, ELAPSED_GET), freq);
-        elapsed_ms(&start, ELAPSED_SET);
+        printf("%4dms: VFO freq. = %.1f Hz\n", (int)elapsed_ms(&start,
+                HAMLIB_ELAPSED_GET),
+               freq);
+        elapsed_ms(&start, HAMLIB_ELAPSED_SET);
         retcode = rig_get_mode(my_rig, RIG_VFO_CURR, &mode, &width);
 
         if (retcode != RIG_OK) { printf("Get mode failed?? Err=%s\n", rigerror(retcode)); }
 
-        printf("%4dms: Current mode = %s, width = %ld\n", elapsed_ms(&start,
-                ELAPSED_GET),
+        printf("%4dms: Current mode = %s, width = %ld\n", (int)elapsed_ms(&start,
+                HAMLIB_ELAPSED_GET),
                rig_strrmode(mode), width);
 
-        elapsed_ms(&start, ELAPSED_SET);
+        elapsed_ms(&start, HAMLIB_ELAPSED_SET);
         retcode = rig_get_ptt(my_rig, RIG_VFO_A, &ptt);
 
         if (retcode != RIG_OK) { printf("Get ptt failed?? Err=%s\n", rigerror(retcode)); }
 
-        printf("%4dms: ptt=%d\n", elapsed_ms(&start, ELAPSED_GET), ptt);
+        printf("%4dms: ptt=%d\n", (int)elapsed_ms(&start, HAMLIB_ELAPSED_GET), ptt);
 
 #if 1
-        elapsed_ms(&start, ELAPSED_SET);
+        elapsed_ms(&start, HAMLIB_ELAPSED_SET);
         retcode = rig_get_split_vfo(my_rig, RIG_VFO_A, &split, &vfo);
 
         if (retcode != RIG_OK) { printf("Get split_vfo failed?? Err=%s\n", rigerror(retcode)); }
 
-        printf("%4dms: split=%d, tx_vfo=%s\n", elapsed_ms(&start, ELAPSED_GET), split,
+        printf("%4dms: split=%d, tx_vfo=%s\n", (int)elapsed_ms(&start,
+                HAMLIB_ELAPSED_GET),
+               split,
                rig_strvfo(vfo));
 #endif
     }
 
-    printf("Elapsed %gsec\n", elapsed_ms(&startall, ELAPSED_GET) / 1000.0);
+    printf("Elapsed %gsec\n", (int)elapsed_ms(&startall,
+            HAMLIB_ELAPSED_GET) / 1000.0);
 
     rig_close(my_rig);
     return 0;

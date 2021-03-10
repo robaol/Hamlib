@@ -23,7 +23,7 @@
 
 /*
  * Looks like the GP2000 could be reused in other rigs so
- * we implmenet that and then the XK2100 uses this interface
+ * we implement that and then the XK2100 uses this interface
  */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -71,7 +71,7 @@ gp2000_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 
     rs = &rig->state;
 
-    serial_flush(&rs->rigport);
+    rig_flush(&rs->rigport);
 
     rig_debug(RIG_DEBUG_VERBOSE, "gp2000_transaction: len=%d,cmd=%s\n",
               cmd_len, cmd);
@@ -345,7 +345,7 @@ gp2000_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
         return retval;
     }
 
-    // we expecte LF+"X" where X is the status
+    // we expected LF+"X" where X is the status
     *status = buf[2] == 1 ? 1 : 0;
 
     return retval;
@@ -490,7 +490,7 @@ gp2000_get_info(RIG *rig)
             break;
 
         default:
-            printf("Unknown reponse: %s\n", p);
+            printf("Unknown response: %s\n", p);
 
         }
 

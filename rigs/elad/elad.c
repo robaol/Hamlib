@@ -160,7 +160,7 @@ const struct confparams elad_cfg_params[] =
  *
  * returns:
  *   RIG_OK -   if no error occurred.
- *   RIG_EIO -    if an I/O error occured while sending/receiving data.
+ *   RIG_EIO -    if an I/O error occurred while sending/receiving data.
  *   RIG_ETIMEOUT - if timeout expires without any characters received.
  *   RIG_REJECTED - if a negative acknowledge was received or command not
  *          recognized by rig.
@@ -223,15 +223,7 @@ transaction_write:
         }
 
         /* flush anything in the read buffer before command is sent */
-        if (rs->rigport.type.rig == RIG_PORT_NETWORK
-                || rs->rigport.type.rig == RIG_PORT_UDP_NETWORK)
-        {
-            network_flush(&rs->rigport);
-        }
-        else
-        {
-            serial_flush(&rs->rigport);
-        }
+        rig_flush(&rs->rigport);
 
         retval = write_block(&rs->rigport, cmd, len);
 
@@ -439,7 +431,7 @@ transaction_quit:
  *  expected  Value of expected string length
  *
  * Returns:
- *   RIG_OK -   if no error occured.
+ *   RIG_OK -   if no error occurred.
  *   RIG_EPROTO   if returned string and expected are not equal
  *   Error from elad_transaction() if any
  *
@@ -1937,7 +1929,7 @@ int elad_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         {
             int foundit = 0;
 
-            for (i = 0; i < MAXDBLSTSIZ && rig->state.attenuator[i]; i++)
+            for (i = 0; i < HAMLIB_MAXDBLSTSIZ && rig->state.attenuator[i]; i++)
             {
                 if (val.i == rig->state.attenuator[i])
                 {
@@ -1966,7 +1958,7 @@ int elad_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         {
             int foundit = 0;
 
-            for (i = 0; i < MAXDBLSTSIZ && rig->state.preamp[i]; i++)
+            for (i = 0; i < HAMLIB_MAXDBLSTSIZ && rig->state.preamp[i]; i++)
             {
                 if (val.i == rig->state.preamp[i])
                 {
@@ -2149,7 +2141,7 @@ int elad_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         }
         else
         {
-            for (i = 0; i < lvl && i < MAXDBLSTSIZ; i++)
+            for (i = 0; i < lvl && i < HAMLIB_MAXDBLSTSIZ; i++)
             {
                 if (rig->state.attenuator[i] == 0)
                 {
@@ -2186,7 +2178,7 @@ int elad_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         {
             lvl = lvlbuf[2] - '0';
 
-            for (i = 0; i < lvl && i < MAXDBLSTSIZ; i++)
+            for (i = 0; i < lvl && i < HAMLIB_MAXDBLSTSIZ; i++)
             {
                 if (rig->state.preamp[i] == 0)
                 {

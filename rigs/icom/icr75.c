@@ -91,10 +91,11 @@
     .flags = 1, \
 }
 
-static int icr75_set_channel(RIG *rig, const channel_t *chan);
-static int icr75_get_channel(RIG *rig, channel_t *chan, int read_only);
-int icr75_set_parm(RIG *rig, setting_t parm, value_t val);
-int icr75_get_parm(RIG *rig, setting_t parm, value_t *val);
+static int icr75_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan);
+static int icr75_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
+                             int read_only);
+static int icr75_set_parm(RIG *rig, setting_t parm, value_t val);
+static int icr75_get_parm(RIG *rig, setting_t parm, value_t *val);
 
 static struct icom_priv_caps icr75_priv_caps =
 {
@@ -135,6 +136,7 @@ const struct rig_caps icr75_caps =
     .has_get_parm =  ICR75_PARM_ALL,
     .has_set_parm =  RIG_PARM_SET(ICR75_PARM_ALL),
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_PBT_IN] = { .min = { .f = -1280 }, .max = { .f = +1280 }, .step = { .f = 15 } },
         [LVL_PBT_OUT] = { .min = { .f = -1280 }, .max = { .f = +1280 }, .step = { .f = 15 } },
@@ -250,7 +252,7 @@ const struct rig_caps icr75_caps =
  * Assumes rig!=NULL, rig->state.priv!=NULL, chan!=NULL
  * TODO: still a WIP --SF
  */
-int icr75_set_channel(RIG *rig, const channel_t *chan)
+int icr75_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     struct icom_priv_data *priv;
     struct rig_state *rs;
@@ -275,7 +277,7 @@ int icr75_set_channel(RIG *rig, const channel_t *chan)
 
     chan_len = 2 + freq_len + 1;
 
-    err = rig2icom_mode(rig, chan->mode, chan->width,
+    err = rig2icom_mode(rig, vfo, chan->mode, chan->width,
                         &icmode, &icmode_ext);
 
     if (err != RIG_OK)
@@ -319,7 +321,7 @@ int icr75_set_channel(RIG *rig, const channel_t *chan)
  * Assumes rig!=NULL, rig->state.priv!=NULL, chan!=NULL
  * TODO: still a WIP --SF
  */
-int icr75_get_channel(RIG *rig, channel_t *chan, int read_only)
+int icr75_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
     struct icom_priv_data *priv;
     struct rig_state *rs;

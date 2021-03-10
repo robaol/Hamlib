@@ -1,6 +1,6 @@
 
 /*
- * Very simple test program to check locator convertion against some other --SF
+ * Very simple test program to check locator conversion against some other --SF
  * This is mainly to test longlat2locator and locator2longlat functions.
  *
  * Takes at least two arguments, which is a locator and desired locater
@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <hamlib/rig.h>
 #include <hamlib/rotator.h>
 
 
@@ -52,7 +53,7 @@ int main(int argc, char *argv[])
 
     if (retcode != RIG_OK)
     {
-        fprintf(stderr, "dec2dms() failed, invalid paramter address.\n");
+        fprintf(stderr, "dec2dms() failed, invalid parameter address.\n");
         exit(2);
     }
 
@@ -76,7 +77,7 @@ int main(int argc, char *argv[])
 
     if (retcode != RIG_OK)
     {
-        fprintf(stderr, "dec2dmmm() failed, invalid paramter address.\n");
+        fprintf(stderr, "dec2dmmm() failed, invalid parameter address.\n");
         exit(2);
     }
 
@@ -92,7 +93,7 @@ int main(int argc, char *argv[])
     printf("  GPS lon:\t%f\t%c%d %.3f'\n", lon1, sign, deg, mmm);
 
     /* hamlib function to convert deg, decimal min to decimal degrees */
-    lon1 = dmmm2dec(deg, mmm, nesw);
+    lon1 = dmmm2dec(deg, mmm, nesw, 0.0);
     printf("  Recoded GPS:\t%f\n", lon1);
 
     /* hamlib function to convert decimal degrees to deg, min, sec */
@@ -100,7 +101,7 @@ int main(int argc, char *argv[])
 
     if (retcode != RIG_OK)
     {
-        fprintf(stderr, "dec2dms() failed, invalid paramter address.\n");
+        fprintf(stderr, "dec2dms() failed, invalid parameter address.\n");
         exit(2);
     }
 
@@ -124,7 +125,7 @@ int main(int argc, char *argv[])
 
     if (retcode != RIG_OK)
     {
-        fprintf(stderr, "dec2dmmm() failed, invalid paramter address.\n");
+        fprintf(stderr, "dec2dmmm() failed, invalid parameter address.\n");
         exit(2);
     }
 
@@ -140,7 +141,7 @@ int main(int argc, char *argv[])
     printf("  GPS lat:\t%f\t%c%d %.3f'\n", lat1, sign, deg, mmm);
 
     /* hamlib function to convert deg, decimal min to decimal degrees */
-    lat1 = dmmm2dec(deg, mmm, nesw);
+    lat1 = dmmm2dec(deg, mmm, nesw, 0.0);
     printf("  Recoded GPS:\t%f\n", lat1);
 
     /* hamlib function to convert decimal degrees to maidenhead */
@@ -175,7 +176,7 @@ int main(int argc, char *argv[])
 
     if (retcode != RIG_OK)
     {
-        fprintf(stderr, "dec2dms() failed, invalid paramter address.\n");
+        fprintf(stderr, "dec2dms() failed, invalid parameter address.\n");
         exit(2);
     }
 
@@ -199,7 +200,7 @@ int main(int argc, char *argv[])
 
     if (retcode != RIG_OK)
     {
-        fprintf(stderr, "dec2dmmm() failed, invalid paramter address.\n");
+        fprintf(stderr, "dec2dmmm() failed, invalid parameter address.\n");
         exit(2);
     }
 
@@ -215,7 +216,7 @@ int main(int argc, char *argv[])
     printf("  GPS lon:\t%f\t%c%d %.3f'\n", lon2, sign, deg, mmm);
 
     /* hamlib function to convert deg, decimal min to decimal degrees */
-    lon2 = dmmm2dec(deg, mmm, nesw);
+    lon2 = dmmm2dec(deg, mmm, nesw, 0.0);
     printf("  Recoded GPS:\t%f\n", lon2);
 
     /* hamlib function to convert decimal degrees to deg, min, sec */
@@ -223,7 +224,7 @@ int main(int argc, char *argv[])
 
     if (retcode != RIG_OK)
     {
-        fprintf(stderr, "dec2dms() failed, invalid paramter address.\n");
+        fprintf(stderr, "dec2dms() failed, invalid parameter address.\n");
         exit(2);
     }
 
@@ -247,7 +248,7 @@ int main(int argc, char *argv[])
 
     if (retcode != RIG_OK)
     {
-        fprintf(stderr, "dec2dmmm() failed, invalid paramter address.\n");
+        fprintf(stderr, "dec2dmmm() failed, invalid parameter address.\n");
         exit(2);
     }
 
@@ -263,7 +264,7 @@ int main(int argc, char *argv[])
     printf("  GPS lat:\t%f\t%c%d %.3f'\n", lat2, sign, deg, mmm);
 
     /* hamlib function to convert deg, decimal min to decimal degrees */
-    lat2 = dmmm2dec(deg, mmm, nesw);
+    lat2 = dmmm2dec(deg, mmm, nesw, 0.0);
     printf("  Recoded GPS:\t%f\n", lat2);
 
     /* hamlib function to convert decimal degrees to maidenhead */

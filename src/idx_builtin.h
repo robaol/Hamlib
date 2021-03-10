@@ -23,6 +23,7 @@
 #define _IDX_BUILTIN_H 1
 
 #include <hamlib/rig.h>
+#include <hamlib/rotator.h>
 
 /*
  * only for Hamlib internal use (backend caps)
@@ -141,6 +142,7 @@
 /*#define LVL_BWC          setting2idx_builtin(RIG_LEVEL_BWC)*/
 
 #define LVL_RFPOWER_METER setting2idx_builtin(RIG_LEVEL_RFPOWER_METER)
+#define LVL_RFPOWER_METER_WATTS setting2idx_builtin(RIG_LEVEL_RFPOWER_METER_WATTS)
 #define LVL_COMP_METER    setting2idx_builtin(RIG_LEVEL_COMP_METER)
 #define LVL_VD_METER      setting2idx_builtin(RIG_LEVEL_VD_METER)
 #define LVL_ID_METER      setting2idx_builtin(RIG_LEVEL_ID_METER)
@@ -150,7 +152,8 @@
 
 #define LVL_NB            setting2idx_builtin(RIG_LEVEL_NB)
 
-#define LVL_39            setting2idx_builtin(RIG_LEVEL_41)
+#define LVL_BRIGHT        setting2idx_builtin(RIG_LEVEL_BRIGHT)
+
 #define LVL_40            setting2idx_builtin(RIG_LEVEL_40)
 #define LVL_41            setting2idx_builtin(RIG_LEVEL_41)
 #define LVL_42            setting2idx_builtin(RIG_LEVEL_42)
@@ -183,6 +186,10 @@
 #define PARM_TIME      setting2idx_builtin(RIG_PARM_TIME)
 #define PARM_BAT       setting2idx_builtin(RIG_PARM_BAT)
 #define PARM_KEYLIGHT  setting2idx_builtin(RIG_PARM_KEYLIGHT)
+
+/* Rotator levels */
+
+#define ROT_LVL_SPEED  setting2idx_builtin(ROT_LEVEL_SPEED)
 
 
 #endif  /* _IDX_BUILTIN_H */

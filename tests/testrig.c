@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 
     printf("testrig: Hello, I am your main() !\n");
 
-    /* Turn off backend debugging ouput */
+    /* Turn off backend debugging output */
     rig_set_debug_level(RIG_DEBUG_NONE);
 
     /*
@@ -45,14 +45,14 @@ int main(int argc, char *argv[])
     if (argc < 2)
     {
         hamlib_port_t myport;
-        /* may be overriden by backend probe */
+        /* may be overridden by backend probe */
         myport.type.rig = RIG_PORT_SERIAL;
         myport.parm.serial.rate = 9600;
         myport.parm.serial.data_bits = 8;
         myport.parm.serial.stop_bits = 1;
         myport.parm.serial.parity = RIG_PARITY_NONE;
         myport.parm.serial.handshake = RIG_HANDSHAKE_NONE;
-        strncpy(myport.pathname, SERIAL_PORT, FILPATHLEN - 1);
+        strncpy(myport.pathname, SERIAL_PORT, HAMLIB_FILPATHLEN - 1);
 
         rig_load_all_backends();
         myrig_model = rig_probe(&myport);
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
         exit(1); /* whoops! something went wrong (mem alloc?) */
     }
 
-    strncpy(my_rig->state.rigport.pathname, SERIAL_PORT, FILPATHLEN - 1);
+    strncpy(my_rig->state.rigport.pathname, SERIAL_PORT, HAMLIB_FILPATHLEN - 1);
 
     retcode = rig_open(my_rig);
 

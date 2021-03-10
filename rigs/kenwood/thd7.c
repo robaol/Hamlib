@@ -88,7 +88,7 @@ const struct rig_caps thd7a_caps =
     .mfg_name =  "Kenwood",
     .version =  TH_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_HANDHELD | RIG_FLAG_APRS | RIG_FLAG_TNC | RIG_FLAG_DXCLUSTER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -111,6 +111,7 @@ const struct rig_caps thd7a_caps =
     .has_get_parm =  THD7_PARMS,
     .has_set_parm =  THD7_PARMS,    /* FIXME: parms */
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 5 } },
         [LVL_SQL] = { .min = { .i = 0 }, .max = { .i = 5 } },
         [LVL_RFPOWER] = { .min = { .i = 3 }, .max = { .i = 0 } },
@@ -195,7 +196,7 @@ const struct rig_caps thd7a_caps =
     .get_parm =  th_get_parm,
     .get_info =  th_get_info,
 
-    .get_dcd =  kenwood_get_dcd,
+    .get_dcd =  th_get_dcd,
 
     .decode_event =  th_decode_event,
 };

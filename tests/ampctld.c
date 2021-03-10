@@ -185,6 +185,7 @@ int main(int argc, char *argv[])
     {
         int c;
         int option_index = 0;
+        char dummy[2];
 
         c = getopt_long(argc, argv, SHORT_OPTIONS, long_options, &option_index);
 
@@ -230,7 +231,12 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            serial_rate = atoi(optarg);
+            if (sscanf(optarg, "%d%1s", &serial_rate, dummy) != 1)
+            {
+                fprintf(stderr, "Invalid baud rate of %s\n", optarg);
+                exit(1);
+            }
+
             break;
 
         case 'C':
@@ -332,7 +338,7 @@ int main(int argc, char *argv[])
 
     if (amp_file)
     {
-        strncpy(my_amp->state.ampport.pathname, amp_file, FILPATHLEN - 1);
+        strncpy(my_amp->state.ampport.pathname, amp_file, HAMLIB_FILPATHLEN - 1);
     }
 
     /* FIXME: bound checking and port type == serial */
@@ -592,6 +598,7 @@ int main(int argc, char *argv[])
         handle_socket(arg);
 #endif
     }
+
     while (retcode == 0);
 
     amp_close(my_amp); /* close port */

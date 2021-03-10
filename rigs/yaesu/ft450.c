@@ -32,19 +32,13 @@
 
 #include "hamlib/rig.h"
 #include "bandplan.h"
-#include "serial.h"
-#include "misc.h"
-#include "yaesu.h"
 #include "newcat.h"
 #include "ft450.h"
 #include "idx_builtin.h"
 
 /*
- * ft450 rigs capabilities.
- * Also this struct is READONLY!
- *
+ * FT-450 rig capabilities
  */
-
 const struct rig_caps ft450_caps =
 {
     RIG_MODEL(RIG_MODEL_FT450),
@@ -52,7 +46,7 @@ const struct rig_caps ft450_caps =
     .mfg_name =           "Yaesu",
     .version =            NEWCAT_VER ".0",
     .copyright =          "LGPL",
-    .status =             RIG_STATUS_BETA,
+    .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
     .ptt_type =           RIG_PTT_RIG,
     .dcd_type =           RIG_DCD_NONE,
@@ -60,7 +54,7 @@ const struct rig_caps ft450_caps =
     .serial_rate_min =    4800,         /* Default rate per manual */
     .serial_rate_max =    38400,
     .serial_data_bits =   8,
-    .serial_stop_bits =   1,            /* Assumed since manual makes no mention */
+    .serial_stop_bits =   2,            /* Assumed since manual makes no mention */
     .serial_parity =      RIG_PARITY_NONE,
     .serial_handshake =   RIG_HANDSHAKE_HARDWARE,
     .write_delay =        FT450_WRITE_DELAY,
@@ -74,13 +68,16 @@ const struct rig_caps ft450_caps =
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_CWPITCH] = { .min = { .i = 400 }, .max = { .i = 800 }, .step = { .i = 100 } },
+        [LVL_KEYSPD] = { .min = { .i = 4 }, .max = { .i = 60 }, .step = { .i = 1 } },
+        [LVL_NOTCHF] = { .min = { .i = 1 }, .max = { .i = 4000 }, .step = { .i = 10 } },
     },
     .ctcss_list =         common_ctcss_list,
     .dcs_list =           NULL,
-    .preamp =             { 10, RIG_DBLST_END, }, /* TBC */
-    .attenuator =         { 18, RIG_DBLST_END, }, /* TBC */
+    .preamp =             { 10, RIG_DBLST_END, }, /* TBC: Not specified in manual */
+    .attenuator =         { 20, RIG_DBLST_END, },
     .max_rit =            Hz(9999),
     .max_xit =            Hz(0),
     .max_ifshift =        Hz(1000),
@@ -89,6 +86,7 @@ const struct rig_caps ft450_caps =
     .transceive =         RIG_TRN_OFF,        /* May enable later as the 450 has an Auto Info command */
     .bank_qty =           0,
     .chan_desc_sz =       0,
+    .rfpower_meter_cal =  FT450_RFPOWER_METER_CAL,
     .str_cal =            FT450_STR_CAL,
     .chan_list =          {
         {   1, 500, RIG_MTYPE_MEM,  NEWCAT_MEM_CAP },
@@ -189,6 +187,8 @@ const struct rig_caps ft450_caps =
     .mW2power =           newcat_mW2power,
     .set_rptr_shift =     newcat_set_rptr_shift,
     .get_rptr_shift =     newcat_get_rptr_shift,
+    .set_rptr_offs =      newcat_set_rptr_offs,
+    .get_rptr_offs =      newcat_get_rptr_offs,
     .set_ctcss_tone =     newcat_set_ctcss_tone,
     .get_ctcss_tone =     newcat_get_ctcss_tone,
     .set_ctcss_sql  =     newcat_set_ctcss_sql,

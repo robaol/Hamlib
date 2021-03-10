@@ -439,7 +439,7 @@ static int ts870s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         }
         else
         {
-            for (i = 0; i < lvl && i < MAXDBLSTSIZ; i++)
+            for (i = 0; i < lvl && i < HAMLIB_MAXDBLSTSIZ; i++)
                 if (rig->state.attenuator[i] == 0)
                 {
                     rig_debug(RIG_DEBUG_ERR, "ts870s_get_level: "
@@ -481,19 +481,19 @@ static int ts870s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
 
     case RIG_LEVEL_AF:
-        return get_kenwood_level(rig, "AG", &val->f);
+        return get_kenwood_level(rig, "AG", &val->f, NULL);
 
     case RIG_LEVEL_RF:
-        return get_kenwood_level(rig, "RG", &val->f);
+        return get_kenwood_level(rig, "RG", &val->f, NULL);
 
     case RIG_LEVEL_SQL:
-        return get_kenwood_level(rig, "SQ", &val->f);
+        return get_kenwood_level(rig, "SQ", &val->f, NULL);
 
     case RIG_LEVEL_MICGAIN:
-        return get_kenwood_level(rig, "MG", &val->f);
+        return get_kenwood_level(rig, "MG", &val->f, NULL);
 
     case RIG_LEVEL_AGC:
-        ret = get_kenwood_level(rig, "GT", &val->f);
+        ret = get_kenwood_level(rig, "GT", &val->f, NULL);
         agclevel = 255 * val->f;
 
         if (agclevel == 0) { val->i = 0; }
@@ -543,7 +543,7 @@ const struct rig_caps ts870s_caps =
     .mfg_name =  "Kenwood",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -669,6 +669,7 @@ const struct rig_caps ts870s_caps =
     .set_ant =  kenwood_set_ant,
     .get_ant =  kenwood_get_ant,
     .send_morse =  kenwood_send_morse,
+    .wait_morse =  rig_wait_morse,
     .vfo_op =  kenwood_vfo_op,
     .set_mem =  kenwood_set_mem,
     .get_mem =  kenwood_get_mem,

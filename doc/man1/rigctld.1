@@ -5,7 +5,7 @@
 .\"
 .\" Note: Please keep this page in sync with the source, rigctld.c
 .\"
-.TH RIGCTLD "1" "2019-12-10" "Hamlib" "Hamlib Utilities"
+.TH RIGCTLD "1" "2020-09-09" "Hamlib" "Hamlib Utilities"
 .
 .
 .SH NAME
@@ -207,7 +207,58 @@ Use
 .I IPADDR
 as the listening IP address.
 .IP
-The default is ANY.
+The default is ANY (0.0.0.0).
+.IP
+.B rigctld
+can be run and connected to like this:
+.
+.IP
+.EX
+rigctld
+.
+.in +4n
+rigctl -m 2
+rigctl -m 2 -r 127.0.0.1
+rigctl -m 2 -r localhost
+rigctl -m 2 -r 192.168.1.1 (local IP address)
+rigctl -m 2 -r ::1 (on Linux rigctld doesn't listen on IPV6 by default)
+.in
+.
+.IP
+rigctld -T 127.0.0.1
+.in +4n
+rigctl -m 2
+rigctl -m 2 -r 127.0.0.1
+.EE
+Exceptions:
+.EX
+rigctl -m 2 -r localhost (only works if localhost is IPV4 address)
+.EE
+.in
+.
+.IP
+.EX
+rigctld -T localhost (will set up on IPV4 or IPV6 based on localhost)
+.in +4n
+rigctl -m 2
+rigctl -m 2 -r localhost
+rigctl -m 2 ip6-localhost
+.EE
+Exceptions:
+.EX
+rigctl -m 2 -r 127.0.0.1 (only works if localhost is IPV4 address)
+rigctl -m 2 -r ::1 (only works localhost is IPV6 address)
+.EE
+.in
+.
+.IP
+On Linux only where ip6-localhost is fe00::0:
+.EX
+rigctld -T ip6-localhost
+.in +4n
+rigctl -m 2 -r ip6-localhost
+.in
+.EE
 .
 .TP
 .BR \-t ", " \-\-port = \fInumber\fP
@@ -284,12 +335,19 @@ Set verbose mode, cumulative (see
 below).
 .
 .TP
-.BR \-X ", " \-\-twiddle = \fIseconds\fP
-Enables timeout when VFO twiddling is detected.  Some functons will be ignored.
+.BR \-W ", " \-\-twiddle_timeout = \fIseconds\fP
+Enables timeout when VFO twiddling is detected.  Some functions will be ignored.
 .IP
 Should only be needed when controlling software should be "paused"
-.B -v
 so you can move the VFO.  Continuous movement extends the timeout.
+.
+.TP
+.BR \-x ", " \-\-uplink=option
+1=Sub, 2=Main 
+.IP
+For GPredict use to ignore get_freq for Sub or Main uplink VFO.
+.IP
+Should allow downlink VFO movement without confusing GPredict or the uplink
 .
 .TP
 .BR \-Z ", " \-\-debug\-time\-stamps
@@ -432,8 +490,8 @@ In VFO mode (see
 .B \-\-vfo
 option above) only a single VFO parameter is required:
 .
-.sp
-.RS 1.0i
+.IP
+.in +4n
 .EX
 $ rigctl -m 229 -r /dev/rig -o
 
@@ -442,7 +500,7 @@ VFO: VFOB
 
 Rig command:
 .EE
-.RE
+.in
 .
 .TP
 .BR v ", " get_vfo
@@ -597,6 +655,22 @@ above.
 Set
 .RI \(aq Antenna \(aq
 number (\(oq0\(cq, \(oq1\(cq, \(oq2\(cq, ...).
+.IP
+.IP
+Option depends on rig..for Icom it probably sets the Tx & Rx antennas as in the IC-7851. See your manual for rig specific option values. Most rigs don't care about the option.
+.IP
+For the IC-7851 (and perhaps others) it means this:
+.IP
+.in +4n
+.EX
+1 = TX/RX = ANT1
+2 = TX/RX = ANT2
+3 = TX/RX = ANT3
+4 = TX/RX = ANT1/ANT4
+5 = TX/RX = ANT2/ANT4
+6 = TX/RX = ANT3/ANT4
+.EE
+.in
 .
 .TP
 .BR y ", " get_ant
@@ -748,7 +822,7 @@ and
 .IP
 Level is a token: \(oqPREAMP\(cq, \(oqATT\(cq, \(oqVOX\(cq, \(oqAF\(cq,
 \(oqRF\(cq, \(oqSQL\(cq, \(oqIF\(cq, \(oqAPF\(cq, \(oqNR\(cq, \(oqPBT_IN\(cq,
-\(oqPBT_OUT\(cq, \(oqCWPITCH\(cq, \(oqRFPOWER\(cq, \(oqMICGAIN\(cq,
+\(oqPBT_OUT\(cq, \(oqCWPITCH\(cq, \(oqRFPOWER\(cq, \(oqRFPOWER_METER\(cq, \(oqRFPOWER_METER_WATTS\(cq, \(oqMICGAIN\(cq,
 \(oqKEYSPD\(cq, \(oqNOTCHF\(cq, \(oqCOMP\(cq, \(oqAGC\(cq, \(oqBKINDL\(cq,
 \(oqBAL\(cq, \(oqMETER\(cq, \(oqVOXGAIN\(cq, \(oqANTIVOX\(cq,
 \(oqSLOPE_LOW\(cq, \(oqSLOPE_HIGH\(cq, \(oqRAWSTR\(cq, \(oqSWR\(cq,
@@ -868,12 +942,11 @@ data.
 Not implemented yet.
 .
 .TP
-.BR h ", " get_channel
-Get memory
-.RI \(aq Channel \(aq
-data.
+.BR h ", " get_channel " \(aq" \fIreadonly\fP \(aq
+Get channel memory.
 .IP
-Not implemented yet.
+If readonly!=0 then only channel data is returned and rig remains on the current channel.  If readonly=0 then rig will be set to the channel requested.
+data.
 .
 .TP
 .BR A ", " set_trn " \(aq" \fITransceive\fP \(aq
@@ -1015,6 +1088,15 @@ commands.  VFO is one of the strings defined in
 .B set_vfo
 above.
 .
+.TP
+.BR set_vfo_opt " \(aq" \fIStatus\fP \(aq
+Set
+.RI \(aq Status \(aq
+.IP
+Set vfo option Status 1=on or 0=off
+This is the same as using the -o switch for rigctl and ritctld.
+This can be dyamically changed while running.
+.
 .
 .SH PROTOCOL
 .
@@ -1052,16 +1134,15 @@ needed values.  In practice, reliable results are obtained by terminating each
 command string with a newline character, \(oq\\n\(cq.
 .
 .PP
-Example set frequency and mode commands (Perl code):
+Example set frequency and mode commands (Perl code (typed text shown in bold)):
 .
-.sp
-.RS 0.5i
+.PP
+.in +4n
 .EX
-print $socket "F 14250000\\n";
-.br
-print $socket "\\\\set_mode LSB 2400\\n";   # escape leading '\\'
+\fBprint $socket "F 14250000\\n";\fP
+\fBprint $socket "\\\\set_mode LSB 2400\\n";\fP   # escape leading '\\'
 .EE
-.RE
+.in
 .
 .PP
 A one line response will be sent as a reply to
@@ -1084,14 +1165,13 @@ is the Hamlib error code.
 .PP
 Example get frequency (Perl code):
 .
-.sp
-.RS 0.5i
+.PP
+.in +4n
 .EX
-print $socket "f\\n";
-.br
+\fBprint $socket "f\\n";\fP
 "14250000\\n"
 .EE
-.RE
+.in
 .
 .PP
 Most
@@ -1153,16 +1233,14 @@ An example response to a
 .B set_mode
 command sent from the shell prompt (note the prepended \(oq+\(cq):
 .
-.sp
-.RS 0.5i
+.PP
+.in +4n
 .EX
-$ echo "+M USB 2400" | nc -w 1 localhost 4532
-.br
+$ \fBecho "+M USB 2400" | nc -w 1 localhost 4532\fP
 set_mode: USB 2400
-.br
 RPRT 0
 .EE
-.RE
+.in
 .
 .PP
 In this case the long command name and values are returned on the first line
@@ -1174,20 +1252,16 @@ An example response to a
 .B get_mode
 query:
 .
-.sp
-.RS 0.5i
+.PP
+.in +4n
 .EX
-$ echo "+\\get_mode" | nc -w 1 localhost 4532
-.br
+$ \fBecho "+\\get_mode" | nc -w 1 localhost 4532\fP
 get_mode:
-.br
 Mode: USB
-.br
 Passband: 2400
-.br
 RPRT 0
 .EE
-.RE
+.in
 .
 .IP
 .BR Note :
@@ -1246,34 +1320,34 @@ For example, invoking a
 .B get_mode
 query with a leading \(oq;\(cq returns:
 .
-.sp
-.RS 0.5i
+.PP
+.in +4n
 .EX
 get_mode:;Mode: USB;Passband: 2400;RPRT 0
 .EE
-.RE
+.in
 .
 .PP
 Or, using the pipe character \(oq|\(cq returns:
 .
-.sp
-.RS 0.5i
+.PP
+.in +4n
 .EX
 get_mode:|Mode: USB|Passband: 2400|RPRT 0
 .EE
-.RE
+.in
 .
 .PP
 And a
 .B set_mode
 command prepended with a \(oq|\(cq returns:
 .
-.sp
-.RS 0.5i
+.PP
+.in +4n
 .EX
 set_mode: USB 2400|RPRT 0
 .EE
-.RE
+.in
 .
 .PP
 Such a format will allow reading a response as a single event using a preferred
@@ -1334,18 +1408,18 @@ sent to and received from the radio which is very useful for radio backend
 library development and may be requested by the developers.
 .
 .
-.SH EXAMPLE
+.SH EXAMPLES
 .
 Start
 .B rigctld
 for a Yaesu FT-920 using a USB-to-serial adapter and backgrounding:
 .
-.sp
-.RS 0.5i
+.PP
+.in +4n
 .EX
-$ rigctld -m 114 -r /dev/ttyUSB1 &
+.RB $ " rigctld -m 1014 -r /dev/ttyUSB1 &"
 .EE
-.RE
+.in
 .
 .PP
 Start
@@ -1353,24 +1427,24 @@ Start
 for a Yaesu FT-920 using a USB-to-serial adapter while setting baud rate and
 stop bits, and backgrounding:
 .
-.sp
-.RS 0.5i
+.PP
+.in +4n
 .EX
-$ rigctld -m 114 -r /dev/ttyUSB1 -s 4800 -C stop_bits=2 &
+.RB $ " rigctld -m 1014 -r /dev/ttyUSB1 -s 4800 -C stop_bits=2 &"
 .EE
-.RE
+.in
 .
 .PP
 Start
 .B rigctld
 for an Elecraft K3 using COM2 on MS Windows:
 .
-.sp
-.RS 0.5i
+.PP
+.in +4n
 .EX
-$ rigctld -m 229 -r COM2
+.RB $ " rigctld -m 2029 -r COM2"
 .EE
-.RE
+.in
 .
 .PP
 Connect to the already running
@@ -1378,12 +1452,12 @@ Connect to the already running
 and set the frequency to 14.266 MHz with a 1 second read timeout using the
 default protocol from the shell prompt:
 .
-.sp
-.RS 0.5i
+.PP
+.in +4n
 .EX
-$ echo "\\set_freq 14266000" | nc -w 1 localhost 4532
+$ \fBecho "\\set_freq 14266000" | nc -w 1 localhost 4532\P
 .EE
-.RE
+.in
 .
 .PP
 Connect to a running
@@ -1392,12 +1466,12 @@ with
 .B rigctl
 on the local host:
 .
-.sp
-.RS 0.5i
+.PP
+.in +4n
 .EX
-$ rigctl -m2
+.RB $ " rigctl -m2"
 .EE
-.RE
+.in
 .
 .
 .SH SECURITY
@@ -1453,7 +1527,7 @@ Copyright \(co 2000-2010 Stephane Fillod
 .br
 Copyright \(co 2000-2018 the Hamlib Group (various contributors)
 .br
-Copyright \(co 2011-2019 Nate Bargmann
+Copyright \(co 2011-2020 Nate Bargmann
 .
 .PP
 This is free software; see the file COPYING for copying conditions.  There is
@@ -1471,8 +1545,8 @@ NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .SH COLOPHON
 .
 Links to the Hamlib Wiki, Git repository, release archives, and daily snapshot
-archives:
-.IP
+archives are available via
+.
 .UR http://www.hamlib.org
 hamlib.org
 .UE .

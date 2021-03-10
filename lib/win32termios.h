@@ -30,6 +30,7 @@
 #include <windows.h>
 #include <sys/types.h>
 #include <io.h>
+#include <stdint.h>
 #ifdef TRACE
 #define ENTER(x) report("entering "x" \n");
 #define LEAVE(x) report("leaving "x" \n");
@@ -56,8 +57,8 @@
 }
 
 typedef unsigned char   cc_t;
-typedef unsigned int    speed_t;
-typedef unsigned int    tcflag_t;
+typedef int32_t    speed_t;
+typedef int32_t    tcflag_t;
 
 /* structs are from linux includes or linux man pages to match
    interfaces.
@@ -108,7 +109,7 @@ struct serial_icounter_struct {
 	int dsr;		/* data set ready count */
 	int rng;		/* ring count */
 	int dcd;		/* carrier detect count */
-	int rx;			/* recieved byte count */
+	int rx;			/* received byte count */
 	int tx;			/* transmitted byte count */
 	int frame;		/* frame error count */
 	int overrun;		/* hardware overrun error count */

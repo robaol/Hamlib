@@ -47,16 +47,15 @@
 #define TS990S_SCAN_OP (RIG_SCAN_VFO)
 #define TS990S_ANTS (RIG_ANT_1|RIG_ANT_2|RIG_ANT_3|RIG_ANT_4)
 
-#define TS990S_STR_CAL {9, {\
+// Measurements from Wolfgang OE1MWW
+#define TS990S_STR_CAL {7, {\
                {0x00, -54},\
-               {0x03, -48},\
-               {0x06, -36},\
-               {0x09, -24},\
-               {0x0C, -12},\
-               {0x0F,   0},\
-               {0x14,  20},\
-               {0x19,  40},\
-               {0x1E,  60}}\
+               {0x04, -48},\
+               {0x0B, -36},\
+               {0x13, -24},\
+               {0x1B, -12},\
+               {0x23,  0},\
+               {0x46,  60}}\
                }
 
 /* memory capabilities */
@@ -126,7 +125,7 @@ const struct rig_caps ts990s_caps =
     RIG_MODEL(RIG_MODEL_TS990S),
     .model_name = "TS-990s",
     .mfg_name =  "Kenwood",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_BETA,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -340,6 +339,7 @@ const struct rig_caps ts990s_caps =
     .set_ant =  kenwood_set_ant,
     .get_ant =  kenwood_get_ant,
     .send_morse =  kenwood_send_morse,
+    .wait_morse =  rig_wait_morse,
     .vfo_op =  kenwood_vfo_op,
     .scan =  kenwood_scan,
     .set_mem =  kenwood_set_mem,
@@ -561,14 +561,8 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_MICGAIN:
-        retval = get_kenwood_level(rig, "MG", &val->f);
 
-        if (retval != RIG_OK)
-        {
-            return retval;
-        }
-
-        break;
+        return kenwood_get_level(rig, vfo, level, val);
 
     case RIG_LEVEL_KEYSPD:
         retval = kenwood_safe_transaction(rig, "KS", lvlbuf, sizeof(lvlbuf), 5);
@@ -670,7 +664,7 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_VOXGAIN:
-        retval = get_kenwood_level(rig, "VG00", &val->f);
+        retval = get_kenwood_level(rig, "VG00", &val->f, NULL);
 
         if (retval != RIG_OK)
         {
@@ -680,7 +674,7 @@ int ts990s_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_ANTIVOX:
-        retval = get_kenwood_level(rig, "VG00", &val->f);
+        retval = get_kenwood_level(rig, "VG00", &val->f, NULL);
 
         if (retval != RIG_OK)
         {

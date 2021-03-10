@@ -58,7 +58,7 @@ static int setDirection(hamlib_port_t *port, unsigned char outputvalue,
     // set the data bits
     par_write_data(port, outputvalue);
 
-    // autofd=true --> azimuth otherwhise elevation
+    // autofd=true --> azimuth otherwise elevation
     if (direction)
     {
         outputstatus = PARPORT_CONTROL_AUTOFD;
@@ -141,7 +141,7 @@ const struct rot_caps fodtrack_rot_caps =
     ROT_MODEL(ROT_MODEL_FODTRACK),
     .model_name =     "Fodtrack",
     .mfg_name =       "XQ2FOD",
-    .version =        "0.2",
+    .version =        "20200107.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rot_type =       ROT_TYPE_OTHER,

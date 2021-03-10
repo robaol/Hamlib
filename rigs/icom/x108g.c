@@ -162,6 +162,7 @@ const struct rig_caps x108g_caps =
     .has_get_parm =  X108G_PARMS,
     .has_set_parm =  RIG_PARM_SET(X108G_PARMS),
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  {},
@@ -270,8 +271,6 @@ const struct rig_caps x108g_caps =
     .set_vfo =  icom_set_vfo,
     .set_ant =  NULL,  /*automatically set by rig depending band */
     .get_ant =  NULL,
-
-    .set_rit =  icom_set_rit,
 
     .decode_event =  icom_decode_event,
     .set_level =  icom_set_level,

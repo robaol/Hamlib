@@ -26,8 +26,9 @@
 
 #include <string.h>
 #include "token.h"
+#include "misc.h"
 
-#define BACKEND_VER "20200508"
+#define BACKEND_VER "20210309"
 
 #define EOM_KEN ';'
 #define EOM_TH '\r'
@@ -80,11 +81,15 @@ extern const struct confparams kenwood_cfg_params[];
 #define RIG_IS_HPSDR     (rig->caps->rig_model == RIG_MODEL_HPSDR)
 #define RIG_IS_K2        (rig->caps->rig_model == RIG_MODEL_K2)
 #define RIG_IS_K3        (rig->caps->rig_model == RIG_MODEL_K3)
+#define RIG_IS_K3S       (rig->caps->rig_model == RIG_MODEL_K3S)
+#define RIG_IS_KX2       (rig->caps->rig_model == RIG_MODEL_KX2)
+#define RIG_IS_KX3       (rig->caps->rig_model == RIG_MODEL_KX3)
+#define RIG_IS_THD7A     (rig->caps->rig_model == RIG_MODEL_THD7A)
 #define RIG_IS_THD74     (rig->caps->rig_model == RIG_MODEL_THD74)
 #define RIG_IS_TS2000    (rig->caps->rig_model == RIG_MODEL_TS2000)
 #define RIG_IS_TS50      (rig->caps->rig_model == RIG_MODEL_TS50)
 #define RIG_IS_TS450S    (rig->caps->rig_model == RIG_MODEL_TS450S)
-#define RIG_IS_TS450S    (rig->caps->rig_model == RIG_MODEL_TS450S)
+#define RIG_IS_TS480     (rig->caps->rig_model == RIG_MODEL_TS480)
 #define RIG_IS_TS590S    (rig->caps->rig_model == RIG_MODEL_TS590S)
 #define RIG_IS_TS590SG   (rig->caps->rig_model == RIG_MODEL_TS590SG)
 #define RIG_IS_TS690S    (rig->caps->rig_model == RIG_MODEL_TS690S)
@@ -96,7 +101,8 @@ extern const struct confparams kenwood_cfg_params[];
 #define RIG_IS_TS950S    (rig->caps->rig_model == RIG_MODEL_TS950S)
 #define RIG_IS_TS990S    (rig->caps->rig_model == RIG_MODEL_TS990S)
 #define RIG_IS_XG3       (rig->caps->rig_model == RIG_MODEL_XG3)
-#define RIG_IS_PT8000A    (rig->caps->rig_model == RIG_MODEL_PT8000A)
+#define RIG_IS_PT8000A   (rig->caps->rig_model == RIG_MODEL_PT8000A)
+#define RIG_IS_POWERSDR  (rig->caps->rig_model == RIG_MODEL_POWERSDR)
 
 struct kenwood_priv_caps
 {
@@ -113,19 +119,29 @@ struct kenwood_priv_data
     int k2_ext_lvl;   /* Initial K2 extension level */
     int k3_ext_lvl;   /* Initial K3 extension level */
     int k2_md_rtty;   /* K2 RTTY mode available flag, 1 = RTTY, 0 = N/A */
-    char *fw_rev;   /* firmware revision level */
-    int trn_state;  /* AI state discovered at startup */
-    unsigned fw_rev_uint; /* firmware revison as a number 1.07 -> 107 */
+    int has_kpa3;     /* Elecraft K3 has k3pa for PC command */
+    int has_kpa100;   /* Elecraft KX3/KX2 has kpa100 for PC command */
+    char *fw_rev;     /* firmware revision level */
+    int trn_state;    /* AI state discovered at startup */
+    unsigned fw_rev_uint; /* firmware revision as a number 1.07 -> 107 */
     char verify_cmd[4];   /* command used to verify set commands */
     int is_emulation;     /* flag for TS-2000 emulations */
     void *data;           /* model specific data */
-    rmode_t curr_mode;     /* used for is_emulation to avoid get_mode on VFOB */
-    // Boolean flags true when model is in use
-    int is_590s;
-    int is_590sg;
-    int is_950;
+    rmode_t curr_mode;    /* used for is_emulation to avoid get_mode on VFOB */
     struct timespec cache_start;
     char last_if_response[KENWOOD_MAX_BUF_LEN];
+    int poweron;   /* to avoid powering on more than once */
+    int has_rit2;  /* rig has set 2 rit command */
+    int ag_format; /* which AG command is being used...see LEVEL_AF in kenwood.c*/
+    int micgain_min, micgain_max; /* varies by rig so we figure it out automagically */
+    int is_k2;
+    int is_k3;
+    int is_k3s;
+    int is_kx3;
+    int is_kx2;
+    int is_k4;
+    int is_k4d;
+    int is_k4hd;
 };
 
 
@@ -194,8 +210,8 @@ int kenwood_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op);
 int kenwood_set_mem(RIG *rig, vfo_t vfo, int ch);
 int kenwood_get_mem(RIG *rig, vfo_t vfo, int *ch);
 int kenwood_get_mem_if(RIG *rig, vfo_t vfo, int *ch);
-int kenwood_get_channel(RIG *rig, channel_t *chan, int read_only);
-int kenwood_set_channel(RIG *rig, const channel_t *chan);
+int kenwood_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only);
+int kenwood_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan);
 int kenwood_scan(RIG *rig, vfo_t vfo, scan_t scan, int ch);
 const char *kenwood_get_info(RIG *rig);
 int kenwood_get_id(RIG *rig, char *buf);
@@ -204,7 +220,7 @@ int kenwood_set_trn(RIG *rig, int trn);
 int kenwood_get_trn(RIG *rig, int *trn);
 
 /* only use if returned string has length 6, e.g. 'SQ011;' */
-int get_kenwood_level(RIG *rig, const char *cmd, float *f);
+int get_kenwood_level(RIG *rig, const char *cmd, float *fval, int *ival);
 int get_kenwood_func(RIG *rig, const char *cmd, int *status);
 
 extern const struct rig_caps ts950s_caps;
@@ -226,6 +242,7 @@ extern const struct rig_caps k3_caps;
 extern const struct rig_caps k3s_caps;
 extern const struct rig_caps kx2_caps;
 extern const struct rig_caps kx3_caps;
+extern const struct rig_caps k4_caps;
 extern const struct rig_caps xg3_caps;
 extern const struct rig_caps trc80_caps;
 
@@ -253,6 +270,7 @@ extern const struct rig_caps thf6a_caps;
 extern const struct rig_caps transfox_caps;
 
 extern const struct rig_caps f6k_caps;
+extern const struct rig_caps powersdr_caps;
 extern const struct rig_caps pihpsdr_caps;
 extern const struct rig_caps ts890s_caps;
 extern const struct rig_caps pt8000a_caps;

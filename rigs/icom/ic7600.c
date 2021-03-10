@@ -43,7 +43,7 @@
 
 #define IC7600_FUNCS (RIG_FUNC_NB|RIG_FUNC_COMP|RIG_FUNC_VOX|RIG_FUNC_TONE|RIG_FUNC_TSQL|RIG_FUNC_SBKIN|RIG_FUNC_FBKIN|RIG_FUNC_NR|RIG_FUNC_MON|RIG_FUNC_MN|RIG_FUNC_ANF|RIG_FUNC_LOCK|RIG_FUNC_RIT|RIG_FUNC_XIT|RIG_FUNC_TUNER|RIG_FUNC_APF|RIG_FUNC_DUAL_WATCH)
 
-#define IC7600_LEVELS (RIG_LEVEL_PREAMP|RIG_LEVEL_ATT|RIG_LEVEL_AGC|RIG_LEVEL_COMP|RIG_LEVEL_BKINDL|RIG_LEVEL_BALANCE|RIG_LEVEL_NR|RIG_LEVEL_PBT_IN|RIG_LEVEL_PBT_OUT|RIG_LEVEL_CWPITCH|RIG_LEVEL_RFPOWER|RIG_LEVEL_MICGAIN|RIG_LEVEL_KEYSPD|RIG_LEVEL_NOTCHF_RAW|RIG_LEVEL_SQL|RIG_LEVEL_RAWSTR|RIG_LEVEL_STRENGTH|RIG_LEVEL_AF|RIG_LEVEL_RF|RIG_LEVEL_VOXGAIN|RIG_LEVEL_ANTIVOX|RIG_LEVEL_VOXDELAY|RIG_LEVEL_SWR|RIG_LEVEL_ALC|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_COMP_METER|RIG_LEVEL_VD_METER|RIG_LEVEL_ID_METER|RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_NB)
+#define IC7600_LEVELS (RIG_LEVEL_PREAMP|RIG_LEVEL_ATT|RIG_LEVEL_AGC|RIG_LEVEL_COMP|RIG_LEVEL_BKINDL|RIG_LEVEL_BALANCE|RIG_LEVEL_NR|RIG_LEVEL_PBT_IN|RIG_LEVEL_PBT_OUT|RIG_LEVEL_CWPITCH|RIG_LEVEL_RFPOWER|RIG_LEVEL_MICGAIN|RIG_LEVEL_KEYSPD|RIG_LEVEL_NOTCHF_RAW|RIG_LEVEL_SQL|RIG_LEVEL_RAWSTR|RIG_LEVEL_STRENGTH|RIG_LEVEL_AF|RIG_LEVEL_RF|RIG_LEVEL_VOXGAIN|RIG_LEVEL_ANTIVOX|RIG_LEVEL_VOXDELAY|RIG_LEVEL_SWR|RIG_LEVEL_ALC|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS|RIG_LEVEL_COMP_METER|RIG_LEVEL_VD_METER|RIG_LEVEL_ID_METER|RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_NB)
 
 #define IC7600_VFOS (RIG_VFO_MAIN|RIG_VFO_SUB|RIG_VFO_MEM)
 #define IC7600_PARMS (RIG_PARM_ANN|RIG_PARM_BEEP|RIG_PARM_TIME|RIG_PARM_BACKLIGHT|RIG_PARM_KEYLIGHT)
@@ -52,15 +52,6 @@
 #define IC7600_SCAN_OPS (RIG_SCAN_MEM|RIG_SCAN_VFO|RIG_SCAN_PROG|RIG_SCAN_DELTA|RIG_SCAN_PRIO)
 
 #define IC7600_ANTS (RIG_ANT_1|RIG_ANT_2)
-
-struct cmdparams ic7600_extcmds[] =
-{
-    { {.s = RIG_PARM_BEEP}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x59}, CMD_DAT_BOL, 1 },
-    { {.s = RIG_PARM_BACKLIGHT}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x38}, CMD_DAT_LVL, 2 },
-    { {.s = RIG_PARM_TIME}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x54}, CMD_DAT_TIM, 2 },
-    { {.s = RIG_LEVEL_VOXDELAY}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x67}, CMD_DAT_INT, 1 },
-    { {.s = RIG_PARM_NONE} }
-};
 
 /*
  * Measurement by Roeland, PA3MET
@@ -100,12 +91,23 @@ struct cmdparams ic7600_extcmds[] =
          { 120, 1.0f } \
     } }
 
-#define IC7600_RFPOWER_METER_CAL { 3, \
+#define IC7600_RFPOWER_METER_CAL { 13, \
     { \
          { 0, 0.0f }, \
-         { 143, 0.5f }, \
-         { 213, 1.0f } \
+         { 21, 5.0f }, \
+         { 43, 10.0f }, \
+         { 65, 15.0f }, \
+         { 83, 20.0f }, \
+         { 95, 25.0f }, \
+         { 105, 30.0f }, \
+         { 114, 35.0f }, \
+         { 124, 40.0f }, \
+         { 143, 50.0f }, \
+         { 183, 75.0f }, \
+         { 213, 100.0f }, \
+         { 255, 120.0f } \
     } }
+
 
 #define IC7600_COMP_METER_CAL { 3, \
     { \
@@ -129,10 +131,22 @@ struct cmdparams ic7600_extcmds[] =
          { 241, 25.0f } \
     } }
 
+struct cmdparams ic7600_extcmds[] =
+{
+    { {.s = RIG_PARM_BEEP}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x59}, CMD_DAT_BOL, 1 },
+    { {.s = RIG_PARM_BACKLIGHT}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x38}, CMD_DAT_LVL, 2 },
+    { {.s = RIG_PARM_TIME}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x54}, CMD_DAT_TIM, 2 },
+    { {.s = RIG_LEVEL_VOXDELAY}, CMD_PARAM_TYPE_LEVEL, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x67}, CMD_DAT_INT, 1 },
+    { { 0 } }
+};
+
+int ic7600_ext_tokens[] =
+{
+    TOK_DRIVE_GAIN, TOK_BACKEND_NONE
+};
+
 /*
  * IC-7600 rig capabilities.
- *
- * TODO: complete command set (esp. the $1A bunch!) and testing..
  */
 static const struct icom_priv_caps ic7600_priv_caps =
 {
@@ -152,15 +166,6 @@ static const struct icom_priv_caps ic7600_priv_caps =
     .extcmds = ic7600_extcmds,   /* Custom op parameters */
 };
 
-const struct confparams ic7600_ext_levels[] =
-{
-    {
-        TOK_DRIVE_GAIN, "drive_gain", "Drive gain", "Drive gain",
-        NULL, RIG_CONF_NUMERIC, { .n = { 0, 255, 1 } },
-    },
-    { RIG_CONF_END, NULL, }
-};
-
 const struct rig_caps ic7600_caps =
 {
     RIG_MODEL(RIG_MODEL_IC7600),
@@ -168,7 +173,7 @@ const struct rig_caps ic7600_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -190,13 +195,17 @@ const struct rig_caps ic7600_caps =
     .has_get_parm =  IC7600_PARMS,
     .has_set_parm =  RIG_PARM_SET(IC7600_PARMS),
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
     },
     .parm_gran =  {},
-    .extlevels = ic7600_ext_levels,
+    .ext_tokens = ic7600_ext_tokens,
+    .extfuncs = icom_ext_funcs,
+    .extlevels = icom_ext_levels,
+    .extparms = icom_ext_parms,
     .ctcss_list =  common_ctcss_list,
     .dcs_list =  NULL,
     .preamp =   { 10, 20, RIG_DBLST_END, }, /* FIXME: TBC */

@@ -91,7 +91,7 @@ const struct rig_caps ic703_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_MOBILE,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -113,6 +113,7 @@ const struct rig_caps ic703_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  {},
@@ -177,11 +178,11 @@ const struct rig_caps ic703_caps =
     },
     /* mode/filter list, remember: order matters! */
     .filters =  {
-        {RIG_MODE_SSB | RIG_MODE_CW | RIG_MODE_RTTY | RIG_MODE_CWR | RIG_MODE_RTTYR, kHz(2.4)}, /* bultin FL-272 */
-        {RIG_MODE_AM, kHz(9)},      /* mid w/ bultin FL-94 */
-        {RIG_MODE_AM, kHz(2.4)},    /* narrow w/ bultin FL-272 */
-        {RIG_MODE_FM, kHz(15)},     /* ?? TBC, mid w/ bultin FL-23+SFPC455E */
-        {RIG_MODE_FM, kHz(9)},      /* narrow w/ bultin FL-94 */
+        {RIG_MODE_SSB | RIG_MODE_CW | RIG_MODE_RTTY | RIG_MODE_CWR | RIG_MODE_RTTYR, kHz(2.4)}, /* builtin FL-272 */
+        {RIG_MODE_AM, kHz(9)},      /* mid w/ builtin FL-94 */
+        {RIG_MODE_AM, kHz(2.4)},    /* narrow w/ builtin FL-272 */
+        {RIG_MODE_FM, kHz(15)},     /* ?? TBC, mid w/ builtin FL-23+SFPC455E */
+        {RIG_MODE_FM, kHz(9)},      /* narrow w/ builtin FL-94 */
         RIG_FLT_END,
     },
     .str_cal = IC703_STR_CAL,

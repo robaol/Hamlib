@@ -27,11 +27,10 @@
 #include "tones.h"
 
 #ifdef HAVE_SYS_TIME_H
-// cppcheck-suppress *
 #include <sys/time.h>
 #endif
 
-#define BACKEND_VER "20200519"
+#define BACKEND_VER "20210310"
 
 /*
  * defines used by comp_cal_str in rig.c
@@ -106,11 +105,23 @@ struct icom_agc_level
     icom_level; /* Icom AGC level for C_CTL_FUNC (0x16), S_FUNC_AGC (0x12) command */
 };
 
-struct cmdparams {      /* Lookup table item for levels & parms */
-    union {
+typedef enum
+{
+    CMD_PARAM_TYPE_NONE,
+    CMD_PARAM_TYPE_LEVEL,
+    CMD_PARAM_TYPE_PARM,
+    CMD_PARAM_TYPE_TOKEN,
+    CMD_PARAM_TYPE_FUNC,
+} cmd_param_t;
+
+struct cmdparams        /* Lookup table item for levels & parms */
+{
+    union
+    {
         setting_t s;    /* Level or parm */
         token_t t;      /* TOKEN_BACKEND */
     } id;
+    cmd_param_t cmdparamtype;  /* CMD_PARAM_TYPE_LEVEL or CMD_PARAM_TYPE_PARM */
     int command;        /* CI-V command */
     int subcmd;         /* CI-V Subcommand */
     int submod;         /* Subcommand modifier */
@@ -150,7 +161,7 @@ struct icom_priv_caps
     // the 4 elements above are mandatory
     // everything below here is optional in the backends
     int settle_time; /*!< Receiver settle time, in ms */
-    int (*r2i_mode)(RIG *rig, rmode_t mode, pbwidth_t width,
+    int (*r2i_mode)(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width,
                     unsigned char *md, signed char *pd); /*< backend specific code
                                to convert bandwidth and
                                mode to cmd tokens */
@@ -165,7 +176,8 @@ struct icom_priv_caps
     int offs_len;               /* Number of bytes in offset frequency field. 0 defaults to 3 */
     int serial_USB_echo_check;  /* Flag to test USB echo state */
     int agc_levels_present;     /* Flag to indicate that agc_levels array is populated */
-    struct icom_agc_level agc_levels[RIG_AGC_LAST + 1]; /* Icom rig-specific AGC levels, the last entry should have level -1 */
+    struct icom_agc_level agc_levels[RIG_AGC_LAST +
+                                                      1]; /* Icom rig-specific AGC levels, the last entry should have level -1 */
     struct cmdparams *extcmds;  /* Pointer to extended operations array */
 };
 
@@ -179,11 +191,10 @@ struct icom_priv_data
     int split_on;                                   /* record split state */
     pltstate_t *pltstate;   /* only on optoscan */
     int serial_USB_echo_off; /* USB is not set to echo */
-    /* we track vfos internallhy for use with different functions like split */
+    /* we track vfos internally for use with different functions like split */
     /* this allows queries using CURR_VFO and Main/Sub to behave */
-    vfo_t curr_vfo; 
-    vfo_t rx_vfo; 
-    vfo_t tx_vfo; 
+    vfo_t rx_vfo;
+    vfo_t tx_vfo;
     freq_t curr_freq; // our current freq depending on which vfo is selected
     freq_t main_freq; // track last setting of main -- not being used yet
     freq_t sub_freq;  // track last setting of sub -- not being used yet
@@ -191,7 +202,8 @@ struct icom_priv_data
     freq_t vfob_freq;  // track last setting of vfob -- used to return last freq when ptt is asserted
     int x25cmdfails;  // This will get set if the 0x25 command fails so we try just once
     int x1cx03cmdfails;  // This will get set if the 0x1c 0x03 command fails so we try just once
-    int satmode;      // Remember satmode for handling TX/RX VFOs and such
+    int poweron;  // to prevent powering on more than once
+    unsigned char filter;   // Current filter selected 
 };
 
 extern const struct ts_sc_list r8500_ts_sc_list[];
@@ -203,11 +215,13 @@ extern const struct ts_sc_list r9000_ts_sc_list[];
 extern const struct ts_sc_list r9500_ts_sc_list[];
 extern const struct ts_sc_list ic756_ts_sc_list[];
 extern const struct ts_sc_list ic756pro_ts_sc_list[];
+extern const struct ts_sc_list ic705_ts_sc_list[];
 extern const struct ts_sc_list ic706_ts_sc_list[];
 extern const struct ts_sc_list ic7000_ts_sc_list[];
 extern const struct ts_sc_list ic7100_ts_sc_list[];
 extern const struct ts_sc_list ic7200_ts_sc_list[];
 extern const struct ts_sc_list ic7300_ts_sc_list[];
+extern const struct ts_sc_list ic9700_ts_sc_list[];
 extern const struct ts_sc_list ic910_ts_sc_list[];
 extern const struct ts_sc_list ic718_ts_sc_list[];
 extern const struct ts_sc_list x108g_ts_sc_list[];
@@ -223,7 +237,6 @@ int icom_rig_close(RIG *rig);
 int icom_cleanup(RIG *rig);
 int icom_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
 int icom_get_freq(RIG *rig, vfo_t vfo, freq_t *freq);
-int icom_set_rit(RIG *rig, vfo_t vfo, shortfreq_t rit);
 int icom_get_rit_new(RIG *rig, vfo_t vfo, shortfreq_t *ts);
 int icom_set_rit_new(RIG *rig, vfo_t vfo, shortfreq_t ts);
 int icom_set_xit_new(RIG *rig, vfo_t vfo, shortfreq_t ts);
@@ -287,16 +300,18 @@ int icom_get_conf(RIG *rig, token_t token, char *val);
 int icom_set_powerstat(RIG *rig, powerstat_t status);
 int icom_get_powerstat(RIG *rig, powerstat_t *status);
 int icom_set_ant(RIG *rig, vfo_t vfo, ant_t ant, value_t option);
-int icom_get_ant(RIG *rig, vfo_t vfo, ant_t ant, value_t *option, ant_t *ant_curr, ant_t *ant_tx, ant_t *ant_rx);
+int icom_get_ant(RIG *rig, vfo_t vfo, ant_t ant, value_t *option,
+                 ant_t *ant_curr, ant_t *ant_tx, ant_t *ant_rx);
 int icom_decode_event(RIG *rig);
 int icom_power2mW(RIG *rig, unsigned int *mwpower, float power, freq_t freq,
                   rmode_t mode);
 int icom_mW2power(RIG *rig, float *power, unsigned int mwpower, freq_t freq,
                   rmode_t mode);
 int icom_send_morse(RIG *rig, vfo_t vfo, const char *msg);
+int icom_stop_morse(RIG *rig, vfo_t vfo);
 int icom_send_voice_mem(RIG *rig, vfo_t vfo, int bank);
 /* Exposed routines */
-int icom_get_split_vfos(const RIG *rig, vfo_t *rx_vfo, vfo_t *tx_vfo);
+int icom_get_split_vfos(RIG *rig, vfo_t *rx_vfo, vfo_t *tx_vfo);
 int icom_set_raw(RIG *rig, int cmd, int subcmd, int subcmdbuflen,
                  unsigned char *subcmdbuf, int val_bytes, int val);
 int icom_get_raw_buf(RIG *rig, int cmd, int subcmd, int subcmdbuflen,
@@ -324,6 +339,7 @@ extern const struct confparams icom_ext_parms[];
 extern const struct cmdparams icom_ext_cmds[];
 
 extern const struct rig_caps ic703_caps;
+extern const struct rig_caps ic705_caps;
 extern const struct rig_caps ic706_caps;
 extern const struct rig_caps ic706mkii_caps;
 extern const struct rig_caps ic706mkiig_caps;
@@ -332,6 +348,7 @@ extern const struct rig_caps ic718_caps;
 extern const struct rig_caps ic725_caps;
 extern const struct rig_caps ic726_caps;
 extern const struct rig_caps ic728_caps;
+extern const struct rig_caps ic729_caps;
 extern const struct rig_caps ic735_caps;
 extern const struct rig_caps ic736_caps;
 extern const struct rig_caps ic737_caps;

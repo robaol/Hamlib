@@ -75,9 +75,8 @@ static int jrc_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 
     rs = &rig->state;
 
-    serial_flush(&rs->rigport);
+    rig_flush(&rs->rigport);
 
-    // cppcheck-suppress *
     Hold_Decode(rig);
 
     retval = write_block(&rs->rigport, cmd, cmd_len);
@@ -1358,7 +1357,7 @@ int jrc_set_mem(RIG *rig, vfo_t vfo, int ch)
 
     cmd_len = sprintf(cmdbuf, "C%03d" EOM, ch);
 
-    /* don't care about the Automatic reponse from receiver */
+    /* don't care about the Automatic response from receiver */
 
     return jrc_transaction(rig, cmdbuf, cmd_len, membuf, &mem_len);
 }
@@ -1402,7 +1401,7 @@ int jrc_get_mem(RIG *rig, vfo_t vfo, int *ch)
  * jrc_set_chan
  * Assumes rig!=NULL
  */
-int jrc_set_chan(RIG *rig, const channel_t *chan)
+int jrc_set_chan(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     struct jrc_priv_caps *priv = (struct jrc_priv_caps *)rig->caps->priv;
     char    cmdbuf[BUFSZ];
@@ -1414,7 +1413,7 @@ int jrc_set_chan(RIG *rig, const channel_t *chan)
     /* read first to get current values */
     current.channel_num = chan->channel_num;
 
-    if ((retval = jrc_get_chan(rig, &current, 1)) != RIG_OK) { return retval; }
+    if ((retval = jrc_get_chan(rig, vfo, &current, 1)) != RIG_OK) { return retval; }
 
     sprintf(cmdbuf, "K%03d000", chan->channel_num);
 
@@ -1466,7 +1465,7 @@ int jrc_set_chan(RIG *rig, const channel_t *chan)
  * jrc_get_chan
  * Assumes rig!=NULL
  */
-int jrc_get_chan(RIG *rig, channel_t *chan, int read_only)
+int jrc_get_chan(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
     struct jrc_priv_caps *priv = (struct jrc_priv_caps *)rig->caps->priv;
     char    membuf[BUFSZ], cmdbuf[BUFSZ];

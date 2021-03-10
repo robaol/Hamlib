@@ -37,13 +37,13 @@
 #include "bandplan.h"
 
 
-#define IC756_ALL_RX_MODES (RIG_MODE_AM|RIG_MODE_CW|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_FM)
+#define IC756_ALL_RX_MODES (RIG_MODE_AM|RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_FM)
 #define IC756_1HZ_TS_MODES IC756_ALL_RX_MODES
 
 /*
  * 100W in all modes but AM (40W)
  */
-#define IC756_OTHER_TX_MODES (RIG_MODE_CW|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_FM)
+#define IC756_OTHER_TX_MODES (RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_FM)
 #define IC756_AM_TX_MODES (RIG_MODE_AM)
 
 #define IC756PRO_FUNC_ALL (RIG_FUNC_NB|RIG_FUNC_COMP|RIG_FUNC_VOX|RIG_FUNC_TONE|RIG_FUNC_TSQL|RIG_FUNC_SBKIN|RIG_FUNC_FBKIN|RIG_FUNC_NR|RIG_FUNC_MON|RIG_FUNC_MN|RIG_FUNC_RF|RIG_FUNC_ANF)
@@ -64,11 +64,11 @@
 
 struct cmdparams ic756pro_cmdparms[] =
 {
-    { {.s = RIG_PARM_BEEP}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x20}, CMD_DAT_BOL, 1 },
-    { {.s = RIG_PARM_BACKLIGHT}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x09}, CMD_DAT_LVL, 2 },
-    { {.s = RIG_PARM_TIME}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x16}, CMD_DAT_TIM, 2 },
-    { {.s = RIG_LEVEL_VOXDELAY}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x60}, CMD_DAT_INT, 1 },
-    { {.s = RIG_PARM_NONE} }
+    { {.s = RIG_PARM_BEEP}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x20}, CMD_DAT_BOL, 1 },
+    { {.s = RIG_PARM_BACKLIGHT}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x09}, CMD_DAT_LVL, 2 },
+    { {.s = RIG_PARM_TIME}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x16}, CMD_DAT_TIM, 2 },
+    { {.s = RIG_LEVEL_VOXDELAY}, CMD_PARAM_TYPE_LEVEL, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x60}, CMD_DAT_INT, 1 },
+    { {0} }
 };
 
 #define IC756PRO_STR_CAL { 16, \
@@ -97,12 +97,12 @@ int ic756_set_func(RIG *rig, vfo_t vfo, setting_t func, int status);
  *  This function deals with the older type radios with only 2 filter widths
  *  (0 - normal, 1 - narrow)
  */
-static int r2i_mode(RIG *rig, rmode_t mode, pbwidth_t width,
+static int r2i_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width,
                     unsigned char *md, signed char *pd)
 {
     int err;
 
-    err = rig2icom_mode(rig, mode, width, md, pd);
+    err = rig2icom_mode(rig, vfo, mode, width, md, pd);
 
     if (err != RIG_OK)
     {
@@ -149,7 +149,7 @@ const struct rig_caps ic756_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_NONE,
     .dcd_type =  RIG_DCD_RIG,
@@ -171,6 +171,7 @@ const struct rig_caps ic756_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE, /* FIXME: parms */
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  {},
@@ -226,9 +227,11 @@ const struct rig_caps ic756_caps =
     },
     /* mode/filter list, remember: order matters! */
     .filters =  {
-        {RIG_MODE_SSB | RIG_MODE_RTTY, kHz(2.4)},
+        {RIG_MODE_SSB | RIG_MODE_RTTY | RIG_MODE_RTTYR, kHz(2.4)},
         {RIG_MODE_CW, kHz(2.4)},
         {RIG_MODE_CW, Hz(500)},
+        {RIG_MODE_CWR, kHz(2.4)},
+        {RIG_MODE_CWR, Hz(500)},
         {RIG_MODE_AM, kHz(9)},
         {RIG_MODE_AM, kHz(2.4)},
         {RIG_MODE_FM, kHz(15)},
@@ -307,7 +310,7 @@ const struct rig_caps ic756pro_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_UNTESTED,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -386,8 +389,9 @@ const struct rig_caps ic756pro_caps =
     },
     /* mode/filter list, remember: order matters! */
     .filters =  {
-        {RIG_MODE_SSB | RIG_MODE_RTTY, kHz(2.4)},
+        {RIG_MODE_SSB | RIG_MODE_RTTY | RIG_MODE_RTTYR, kHz(2.4)},
         {RIG_MODE_CW, Hz(500)},
+        {RIG_MODE_CWR, Hz(500)},
         {RIG_MODE_AM, kHz(8)},
         {RIG_MODE_AM, kHz(2.4)},
         {RIG_MODE_FM, kHz(15)},
@@ -541,7 +545,7 @@ const struct rig_caps ic756pro2_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -901,7 +905,7 @@ static const struct icom_priv_caps ic756pro3_priv_caps =
 #define IC756PROIII_OTHER_TX_MODES (RIG_MODE_CW|RIG_MODE_CWR|RIG_MODE_SSB|RIG_MODE_RTTY|RIG_MODE_RTTYR|RIG_MODE_FM)
 #define IC756PROIII_AM_TX_MODES (RIG_MODE_AM)
 
-#define IC756PROIII_LEVEL_ALL (IC756PROII_LEVEL_ALL|RIG_LEVEL_SWR|RIG_LEVEL_ALC|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_COMP_METER|RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_ANTIVOX|RIG_LEVEL_NB)
+#define IC756PROIII_LEVEL_ALL (IC756PROII_LEVEL_ALL|RIG_LEVEL_SWR|RIG_LEVEL_ALC|RIG_LEVEL_RFPOWER_METER|RIG_LEVEL_RFPOWER_METER_WATTS|RIG_LEVEL_COMP_METER|RIG_LEVEL_MONITOR_GAIN|RIG_LEVEL_ANTIVOX|RIG_LEVEL_NB)
 
 /*
  * TODO: check whether all func and levels are stored in memory
@@ -939,12 +943,23 @@ static const struct icom_priv_caps ic756pro3_priv_caps =
          { 120, 1.0f } \
     } }
 
-#define IC756PROIII_RFPOWER_METER_CAL { 3, \
+#define IC756PROIII_RFPOWER_METER_CAL { 13, \
     { \
          { 0, 0.0f }, \
-         { 143, 0.5f }, \
-         { 213, 1.0f } \
+         { 21, 5.0f }, \
+         { 43, 10.0f }, \
+         { 65, 15.0f }, \
+         { 83, 20.0f }, \
+         { 95, 25.0f }, \
+         { 105, 30.0f }, \
+         { 114, 35.0f }, \
+         { 124, 40.0f }, \
+         { 143, 50.0f }, \
+         { 183, 75.0f }, \
+         { 213, 100.0f }, \
+         { 255, 120.0f } \
     } }
+
 
 #define IC756PROIII_COMP_METER_CAL { 3, \
     { \
@@ -960,7 +975,7 @@ const struct rig_caps ic756pro3_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_BETA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,

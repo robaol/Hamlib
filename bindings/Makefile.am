@@ -3,19 +3,21 @@
 # more information on swig at http://www.swig.org
 #
 
-AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/bindings $(PYTHON_CPPFLAGS) \
+AM_CPPFLAGS = @AM_CPPFLAGS@ -I$(top_srcdir)/include -I$(top_srcdir)/bindings  \
 	$(TCL_INCLUDE_SPEC)
 
 AM_CFLAGS = -fno-strict-aliasing
 AM_CXXFLAGS = -O2
 
-SWGFILES = hamlib.swg ignore.swg rig.swg rotator.swg
+SWGFILES = hamlib.swg ignore.swg rig.swg rotator.swg amplifier.swg
 
 SWGDEP = \
 	$(top_srcdir)/include/hamlib/rig.h \
 	$(top_srcdir)/include/hamlib/riglist.h \
 	$(top_srcdir)/include/hamlib/rotator.h \
 	$(top_srcdir)/include/hamlib/rotlist.h \
+	$(top_srcdir)/include/hamlib/amplifier.h \
+	$(top_srcdir)/include/hamlib/amplist.h \
 	$(SWGFILES)
 
 EXTRA_DIST = $(SWGFILES) \
@@ -39,11 +41,11 @@ example_DATA += perltest.pl
 
 hamlibperl_wrap.c: hamlib.swg $(SWIGDEP)
 	$(AM_V_GEN)$(SWIG) -perl5 -shadow $(AM_CPPFLAGS) -I$(top_srcdir)/bindings \
-		-o $@ `test -f hamlib.swg || echo '$(srcdir)/'`hamlib.swg
+		-o $@ $$(test -f hamlib.swg || echo '$(srcdir)/')hamlib.swg
 
 Hamlib-pl.mk: $(srcdir)/Makefile.PL
 	$(AM_V_at)test -f Makefile.PL || $(LN_S) $(srcdir)/Makefile.PL Makefile.PL
-	$(AM_V_at)perl `test -f Makefile.PL || echo '$(srcdir)/'`Makefile.PL \
+	$(AM_V_at)perl $$(test -f Makefile.PL || echo '$(srcdir)/')Makefile.PL \
 			MAKEFILE="Hamlib-pl.mk" \
 			PREFIX="$(prefix)" \
 			INC="$(AM_CPPFLAGS)"  \
@@ -119,8 +121,8 @@ check-py: all-py
 Hamlib.py: hamlibpy_wrap.c
 
 hamlibpy_wrap.c: hamlib.swg $(SWGDEP)
-	$(AM_V_GEN)$(SWIG) -python $(AM_CPPFLAGS) -I$(top_srcdir)/bindings \
-		-o $@ `test -f hamlib.swg || echo '$(srcdir)/'`hamlib.swg
+	$(AM_V_GEN)$(SWIG) -python $(AM_CPPFLAGS) $(PYTHON_CPPFLAGS) -I$(top_srcdir)/bindings \
+		-o $@ $$(test -f hamlib.swg || echo '$(srcdir)/')hamlib.swg
 
 install-py:
 clean-py:
@@ -157,7 +159,7 @@ hamlibtcl_la_DATA = pkgIndex.tcl
 # set by $(hamlibtcl_ladir)
 hamlibtcl_la_LTLIBRARIES = $(tcl_ltlib)
 
-# Having the first occurance of 'hamlib' capitalized seemed to cause confusion
+# Having the first occurrence of 'hamlib' capitalized seemed to cause confusion
 # for the TCL interpreter loading the Hamlib module.
 pkgIndex.tcl: Makefile
 	$(AM_V_at)echo 'package ifneeded hamlib $(PKG_VER) [list load [file join $$dir $(DLL)] Hamlib]' > pkgIndex.tcl
@@ -165,7 +167,7 @@ pkgIndex.tcl: Makefile
 hamlibtcl_wrap.c: hamlib.swg $(SWGDEP)
 	$(AM_V_GEN)$(SWIG) -tcl -pkgversion $(PKG_VER) $(AM_CPPFLAGS) \
 		-I$(top_srcdir)/bindings \
-		-o $@ `test -f hamlib.swg || echo '$(srcdir)/'`hamlib.swg
+		-o $@ $$(test -f hamlib.swg || echo '$(srcdir)/')hamlib.swg
 
 do_subst = sed -e 's,[@]tcldir[@],$(tcldir),g'
 
@@ -217,7 +219,7 @@ Hamlib.lua: hamliblua_wrap.c
 
 hamliblua_wrap.c: hamlib.swg $(SWGDEP)
 	$(AM_V_GEN)$(SWIG) -lua $(AM_CPPFLAGS) -I$(top_srcdir)/bindings \
-		-o $@ `test -f hamlib.swg || echo '$(srcdir)/'`hamlib.swg
+		-o $@ $$(test -f hamlib.swg || echo '$(srcdir)/')hamlib.swg
 
 install-lua:
 clean-lua:

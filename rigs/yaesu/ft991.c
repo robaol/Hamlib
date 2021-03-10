@@ -37,26 +37,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include "hamlib/rig.h"
-#include "bandplan.h"
-#include "serial.h"
-#include "misc.h"
-#include "yaesu.h"
 #include "newcat.h"
 #include "ft991.h"
 #include "idx_builtin.h"
 
 /*
- * ft991 rigs capabilities.
- * Also this struct is READONLY!
- *
+ * FT-991 rig capabilities
  */
-
 const struct rig_caps ft991_caps =
 {
     RIG_MODEL(RIG_MODEL_FT991),
     .model_name =         "FT-991",
     .mfg_name =           "Yaesu",
-    .version =            NEWCAT_VER ".1",
+    .version =            NEWCAT_VER ".2",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -66,7 +59,7 @@ const struct rig_caps ft991_caps =
     .serial_rate_min =    4800,         /* Default rate per manual */
     .serial_rate_max =    38400,
     .serial_data_bits =   8,
-    .serial_stop_bits =   1,            /* Assumed since manual makes no mention */
+    .serial_stop_bits =   2,            /* Assumed since manual makes no mention */
     .serial_parity =      RIG_PARITY_NONE,
     .serial_handshake =   RIG_HANDSHAKE_HARDWARE,
     .write_delay =        FT991_WRITE_DELAY,
@@ -80,21 +73,25 @@ const struct rig_caps ft991_caps =
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 1050 }, .step = { .i = 50 } },
+        [LVL_KEYSPD] = { .min = { .i = 4 }, .max = { .i = 60 }, .step = { .i = 1 } },
+        [LVL_NOTCHF] = { .min = { .i = 1 }, .max = { .i = 3200 }, .step = { .i = 10 } },
     },
     .ctcss_list =         common_ctcss_list,
     .dcs_list =           common_dcs_list,
-    .preamp =             { 10, 20, RIG_DBLST_END, }, /* TBC */
-    .attenuator =         { 6, 12, 18, RIG_DBLST_END, },
+    .preamp =             { 10, 20, RIG_DBLST_END, },
+    .attenuator =         { 12, RIG_DBLST_END, },
     .max_rit =            Hz(9999),
     .max_xit =            Hz(9999),
-    .max_ifshift =        Hz(1000),
+    .max_ifshift =        Hz(1200),
     .vfo_ops =            FT991_VFO_OPS,
     .targetable_vfo =     RIG_TARGETABLE_FREQ,
     .transceive =         RIG_TRN_OFF,        /* May enable later as the 950 has an Auto Info command */
     .bank_qty =           0,
     .chan_desc_sz =       0,
+    .rfpower_meter_cal =  FT991_RFPOWER_METER_CAL,
     .str_cal =            FT991_STR_CAL,
     .chan_list =          {
         {   1,  99, RIG_MTYPE_MEM,  NEWCAT_MEM_CAP },
@@ -167,10 +164,11 @@ const struct rig_caps ft991_caps =
         {RIG_MODE_SSB,                Hz(600)},     /*        SSB */
         {RIG_MODE_SSB,                Hz(400)},     /*        SSB */
         {RIG_MODE_SSB,                Hz(200)},     /*        SSB */
+        {FT991_CW_RTTY_PKT_RX_MODES | RIG_MODE_SSB, RIG_FLT_ANY },
         {RIG_MODE_AM,                 Hz(9000)},    /* Normal AM */
-        {RIG_MODE_AMN,                 Hz(6000)},    /* Narrow AM */
-        {FT991_FM_RX_MODES,           Hz(16000)},   /* Normal FM */
-        {FT991_FM_RX_MODES,           Hz(9000)},    /* Narrow FM */
+        {RIG_MODE_AMN,                Hz(6000)},    /* Narrow AM */
+        {FT991_FM_WIDE_RX_MODES,      Hz(16000)},   /* Normal FM */
+        {RIG_MODE_FMN,                Hz(9000)},    /* Narrow FM */
 
         RIG_FLT_END,
     },
@@ -198,8 +196,6 @@ const struct rig_caps ft991_caps =
     .get_rit =            newcat_get_rit,
     .set_xit =            newcat_set_xit,
     .get_xit =            newcat_get_xit,
-    .set_ant =            newcat_set_ant,
-    .get_ant =            newcat_get_ant,
     .get_func =           newcat_get_func,
     .set_func =           newcat_set_func,
     .get_level =          newcat_get_level,
@@ -212,8 +208,8 @@ const struct rig_caps ft991_caps =
     .mW2power =           newcat_mW2power,
     .set_rptr_shift =     newcat_set_rptr_shift,
     .get_rptr_shift =     newcat_get_rptr_shift,
-    .set_rptr_offs =      newcat_set_rptr_offs,  /*ve9gj */
-    .get_rptr_offs =      newcat_get_rptr_offs,  /*ve9gj */
+    .set_rptr_offs =      newcat_set_rptr_offs,
+    .get_rptr_offs =      newcat_get_rptr_offs,
     .set_ctcss_tone =     ft991_set_ctcss_tone,
     .get_ctcss_tone =     ft991_get_ctcss_tone,
     .set_dcs_code =       ft991_set_dcs_code,
@@ -711,9 +707,7 @@ static int ft991_get_ctcss_tone(RIG *rig, vfo_t vfo, tone_t *tone)
 static int ft991_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
 {
     struct newcat_priv_data *priv = (struct newcat_priv_data *)rig->state.priv;
-    int i;
     int err;
-    ncboolean tone_match;
     rmode_t rmode;
 
     rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
@@ -736,6 +730,9 @@ static int ft991_set_ctcss_sql(RIG *rig, vfo_t vfo, tone_t tone)
     }
     else
     {
+        int i;
+        ncboolean tone_match;
+
         for (i = 0, tone_match = FALSE; rig->caps->ctcss_list[i] != 0; i++)
         {
             if (tone == rig->caps->ctcss_list[i])
@@ -869,7 +866,7 @@ static int ft991_get_dcs_code(RIG *rig, vfo_t vfo, tone_t *code)
 
     *code = rig->caps->dcs_list[t];
 
-    rig_debug(RIG_DEBUG_TRACE, "%s dcs code %d\n", __func__, *code);
+    rig_debug(RIG_DEBUG_TRACE, "%s dcs code %u\n", __func__, *code);
 
     return RIG_OK;
 }

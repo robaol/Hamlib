@@ -24,6 +24,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
+#include <hamlibdatetime.h>
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
@@ -48,7 +49,6 @@ extern char *readline();
 #else
 /* no readline */
 #endif                              /* HAVE_LIBREADLINE */
-
 #ifdef HAVE_READLINE_HISTORY
 #  include <sys/stat.h>
 #  define HST_SHRT_OPTS "iI"
@@ -141,6 +141,7 @@ int main(int argc, char *argv[])
     {
         int c;
         int option_index = 0;
+        char dummy[2];
 
         c = getopt_long(argc,
                         argv,
@@ -190,7 +191,12 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            serial_rate = atoi(optarg);
+            if (sscanf(optarg, "%d%1s", &serial_rate, dummy) != 1)
+            {
+                fprintf(stderr, "Invalid baud rate of %s\n", optarg);
+                exit(1);
+            }
+
             break;
 
         case 'C':
@@ -272,7 +278,8 @@ int main(int argc, char *argv[])
 
     rig_set_debug(verbose);
 
-    rig_debug(RIG_DEBUG_VERBOSE, "ampctl, %s\n", hamlib_version);
+    rig_debug(RIG_DEBUG_VERBOSE, "ampctl %s\nLast commit was %s\n", hamlib_version,
+              HAMLIBDATETIME);
     rig_debug(RIG_DEBUG_VERBOSE, "%s",
               "Report bugs to <hamlib-developer@lists.sourceforge.net>\n\n");
 
@@ -307,7 +314,7 @@ int main(int argc, char *argv[])
 
     if (amp_file)
     {
-        strncpy(my_amp->state.ampport.pathname, amp_file, FILPATHLEN - 1);
+        strncpy(my_amp->state.ampport.pathname, amp_file, HAMLIB_FILPATHLEN - 1);
     }
 
     /* FIXME: bound checking and port type == serial */

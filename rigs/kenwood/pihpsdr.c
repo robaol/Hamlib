@@ -64,8 +64,9 @@ static int pihpsdr_open(RIG *rig);
 static int pihpsdr_get_level(RIG *rig, vfo_t vfo, setting_t level,
                              value_t *val);
 static int pihpsdr_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val);
-static int pihspdr_get_channel(RIG *rig, channel_t *chan, int read_only);
-static int pihspdr_set_channel(RIG *rig, const channel_t *chan);
+static int pihspdr_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
+                               int read_only);
+static int pihspdr_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan);
 
 
 static struct kenwood_priv_caps  ts2000_priv_caps  =
@@ -102,7 +103,7 @@ const struct rig_caps pihpsdr_caps =
     RIG_MODEL(RIG_MODEL_HPSDR),
     .model_name = "PiHPSDR",
     .mfg_name =  "OpenHPSDR",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -117,7 +118,7 @@ const struct rig_caps pihpsdr_caps =
     .serial_handshake = RIG_HANDSHAKE_NONE,
     .write_delay =  0,
     .post_write_delay =  50,    /* ms */
-    .timeout =  50,
+    .timeout =  500,
     .retry =  1,
     .has_get_func =  PIHPSDR_FUNC_ALL,
     .has_set_func =  PIHPSDR_FUNC_ALL,
@@ -283,6 +284,7 @@ const struct rig_caps pihpsdr_caps =
     .set_ant =  kenwood_set_ant,
     .get_ant =  kenwood_get_ant,
     .send_morse =  kenwood_send_morse,
+    .wait_morse =  rig_wait_morse,
     .vfo_op =  kenwood_vfo_op,
     .scan =  kenwood_scan,
     .set_mem =  kenwood_set_mem,
@@ -341,7 +343,7 @@ const struct rig_caps pihpsdr_caps =
 
  */
 
-int pihspdr_get_channel(RIG *rig, channel_t *chan, int read_only)
+int pihspdr_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
     int err;
     int tmp;
@@ -388,7 +390,7 @@ int pihspdr_get_channel(RIG *rig, channel_t *chan, int read_only)
 
     /* Memory group no */
     chan->scan_group = buf[ 40 ] - '0';
-    /* Fileds 38-39 contain tuning step as a number 00 - 09.
+    /* Fields 38-39 contain tuning step as a number 00 - 09.
        Tuning step depends on this number and the mode,
        just save it for now */
     buf[ 40 ] = '\0';
@@ -579,7 +581,7 @@ int pihspdr_get_channel(RIG *rig, channel_t *chan, int read_only)
     return RIG_OK;
 }
 
-int pihspdr_set_channel(RIG *rig, const channel_t *chan)
+int pihspdr_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     char sqltype;
     char shift;
@@ -633,7 +635,7 @@ int pihspdr_set_channel(RIG *rig, const channel_t *chan)
     }
     else
     {
-        tone = -1; /* -1 because we will add 1 when outputing; this is necessary as CTCSS codes are numbered from 1 */
+        tone = -1; /* -1 because we will add 1 when outputting; this is necessary as CTCSS codes are numbered from 1 */
     }
 
     /* find CTCSS code */
@@ -841,7 +843,7 @@ int pihpsdr_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         {
             int foundit = 0;
 
-            for (i = 0; i < MAXDBLSTSIZ && rig->state.attenuator[i]; i++)
+            for (i = 0; i < HAMLIB_MAXDBLSTSIZ && rig->state.attenuator[i]; i++)
             {
                 if (val.i == rig->state.attenuator[i])
                 {
@@ -870,7 +872,7 @@ int pihpsdr_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         {
             int foundit = 0;
 
-            for (i = 0; i < MAXDBLSTSIZ && rig->state.preamp[i]; i++)
+            for (i = 0; i < HAMLIB_MAXDBLSTSIZ && rig->state.preamp[i]; i++)
             {
                 if (val.i == rig->state.preamp[i])
                 {
@@ -1033,25 +1035,7 @@ int pihpsdr_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_AF:
-        retval = kenwood_transaction(rig, "AG0", lvlbuf, sizeof(lvlbuf));
-
-        if (retval != RIG_OK)
-        {
-            return retval;
-        }
-
-        lvl_len = strlen(lvlbuf);
-
-        if (lvl_len != 6)
-        {
-            rig_debug(RIG_DEBUG_ERR, "%s: unexpected answer len=%d\n", __func__,
-                      (int)lvl_len);
-            return -RIG_ERJCTED;
-        }
-
-        sscanf(lvlbuf + 2, "%d", &lvl);
-        val->f = lvl / 255.0;
-        break;
+        return kenwood_get_level(rig, vfo, level, val);
 
     case RIG_LEVEL_RF:
         retval = kenwood_transaction(rig, "RG", lvlbuf, sizeof(lvlbuf));
@@ -1133,7 +1117,7 @@ int pihpsdr_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_ERJCTED;
         }
 
-        sscanf(lvlbuf + 3, "%d", &lvl);
+        sscanf(lvlbuf + 2, "%d", &lvl);
         val->f = lvl / 100.0; /* FIXME: for 1.2GHZ need to divide by 10 */
         break;
 

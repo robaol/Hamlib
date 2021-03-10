@@ -38,6 +38,11 @@ public:
 
     virtual ~Rig();
 
+    Rig(const Rig&) = default;
+    Rig(Rig&&) = default;
+    Rig& operator=(const Rig&) = default;
+    Rig& operator=(Rig&&) = default;
+
     const struct rig_caps *caps;
 
     // This method opens the communication port to the rig
@@ -126,8 +131,8 @@ public:
     void setMem(int ch, vfo_t vfo = RIG_VFO_CURR);
     int getMem(vfo_t vfo = RIG_VFO_CURR);
 
-    void setChannel(const channel_t *chan);
-    void getChannel(channel_t *chan, int readOnly);
+    void setChannel(const channel_t *chan, vfo_t vfo);
+    void getChannel(channel_t *chan, vfo_t vfo, int readOnly);
 
     void setPowerStat(powerstat_t status);
     powerstat_t getPowerStat(void);

@@ -102,7 +102,7 @@ const struct rig_caps ft736_caps =
     RIG_MODEL(RIG_MODEL_FT736R),
     .model_name =         "FT-736R",
     .mfg_name =           "Yaesu",
-    .version =            "20200113.0",
+    .version =            "20210221.0",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -368,6 +368,10 @@ int ft736_set_split_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0x2e};
 
+    int retval = rig_set_split_vfo(rig, RIG_VFO_A, RIG_SPLIT_ON, RIG_VFO_B);
+
+    if (retval != RIG_OK) { RETURNFUNC(retval); }
+
     /* store bcd format in cmd (MSB) */
     to_bcd_be(cmd, freq / 10, 8);
 
@@ -440,7 +444,7 @@ int ft736_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd)
     unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0xe7};
     int retval;
 
-    serial_flush(&rig->state.rigport);
+    rig_flush(&rig->state.rigport);
 
     retval = write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
 
@@ -475,7 +479,7 @@ int ft736_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         return -RIG_EINVAL;
     }
 
-    serial_flush(&rig->state.rigport);
+    rig_flush(&rig->state.rigport);
 
     /* send Test S-meter cmd to rig  */
     retval = write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);

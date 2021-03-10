@@ -1,5 +1,5 @@
 /*
- *  Hamlib CI-V backend - description of IC-9100 (HF/VHF/UHF All-Mode Tranceiver)
+ *  Hamlib CI-V backend - description of IC-9100 (HF/VHF/UHF All-Mode Transceiver)
  *  Copyright (c) 2000-2011 by Stephane Fillod
  *
  *
@@ -93,6 +93,7 @@
                             RIG_LEVEL_SWR| \
                             RIG_LEVEL_ALC| \
                             RIG_LEVEL_RFPOWER_METER| \
+                            RIG_LEVEL_RFPOWER_METER_WATTS| \
                             RIG_LEVEL_COMP_METER| \
                             RIG_LEVEL_VD_METER| \
                             RIG_LEVEL_ID_METER| \
@@ -108,11 +109,11 @@ int ic7100_tokens[] = { TOK_DSTAR_CODE, TOK_DSTAR_DSQL, TOK_DSTAR_CALL_SIGN, TOK
 
 struct cmdparams ic7100_extcmds[] =
 {
-    { {.s = RIG_PARM_BEEP}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x03}, CMD_DAT_BOL, 1 },
-    { {.s = RIG_PARM_BACKLIGHT}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x04}, CMD_DAT_LVL, 2 },
-    { {.s = RIG_PARM_KEYLIGHT}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x05}, CMD_DAT_LVL, 2 },
-    { {.s = RIG_PARM_TIME}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x21}, CMD_DAT_TIM, 2 },
-    { {.s = RIG_LEVEL_VOXDELAY}, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x65}, CMD_DAT_INT, 1 },
+    { {.s = RIG_PARM_BEEP}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x00, 0x03}, CMD_DAT_BOL, 1 },
+    { {.s = RIG_PARM_BACKLIGHT}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x04}, CMD_DAT_LVL, 2 },
+    { {.s = RIG_PARM_KEYLIGHT}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x05}, CMD_DAT_LVL, 2 },
+    { {.s = RIG_PARM_TIME}, CMD_PARAM_TYPE_PARM, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x21}, CMD_DAT_TIM, 2 },
+    { {.s = RIG_LEVEL_VOXDELAY}, CMD_PARAM_TYPE_LEVEL, C_CTL_MEM, S_MEM_PARM, SC_MOD_RW, 2, {0x01, 0x65}, CMD_DAT_INT, 1 },
     { {.s = RIG_PARM_NONE} }
 };
 
@@ -139,12 +140,23 @@ struct cmdparams ic7100_extcmds[] =
          { 120, 1.0f } \
     } }
 
-#define IC7100_RFPOWER_METER_CAL { 3, \
+#define IC7100_RFPOWER_METER_CAL { 13, \
     { \
          { 0, 0.0f }, \
-         { 143, 0.5f }, \
-         { 213, 1.0f } \
+         { 21, 5.0f }, \
+         { 43, 10.0f }, \
+         { 65, 15.0f }, \
+         { 83, 20.0f }, \
+         { 95, 25.0f }, \
+         { 105, 30.0f }, \
+         { 114, 35.0f }, \
+         { 124, 40.0f }, \
+         { 143, 50.0f }, \
+         { 183, 75.0f }, \
+         { 213, 100.0f }, \
+         { 255, 120.0f } \
     } }
+
 
 #define IC7100_COMP_METER_CAL { 3, \
     { \
@@ -198,7 +210,7 @@ const struct rig_caps ic7100_caps =
     .mfg_name =  "Icom",
     .version =  BACKEND_VER ".0",
     .copyright =  "LGPL",
-    .status =  RIG_STATUS_ALPHA,
+    .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
     .ptt_type =  RIG_PTT_RIG,
     .dcd_type =  RIG_DCD_RIG,
@@ -220,6 +232,7 @@ const struct rig_caps ic7100_caps =
     .has_get_parm =  IC7100_PARM_ALL,
     .has_set_parm =  IC7100_PARM_ALL,
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
@@ -241,7 +254,7 @@ const struct rig_caps ic7100_caps =
     .vfo_ops =  IC7100_VFO_OPS,
     .scan_ops =  IC7100_SCAN_OPS,
     .transceive =  RIG_TRN_RIG,
-    .bank_qty =   0,
+    .bank_qty =   5,
     .chan_desc_sz =  9, /* TODO */
 
     .chan_list =  { /* TBC */
@@ -360,8 +373,6 @@ const struct rig_caps ic7100_caps =
     .set_ptt =  icom_set_ptt,
     .get_ptt =  icom_get_ptt,
 
-    .set_rit =  icom_set_rit,
-
     .set_rptr_shift =  icom_set_rptr_shift,
     .get_rptr_shift =  icom_get_rptr_shift,
     .set_rptr_offs =  icom_set_rptr_offs,
@@ -380,6 +391,7 @@ const struct rig_caps ic7100_caps =
     .set_ext_func =  icom_set_ext_func,
     .get_ext_func =  icom_get_ext_func,
     .set_mem =  icom_set_mem,
+    .set_bank =  icom_set_bank,
     .vfo_op =  icom_vfo_op,
     .scan =  icom_scan,
     .get_dcd =  icom_get_dcd,
@@ -392,5 +404,7 @@ const struct rig_caps ic7100_caps =
     .get_split_mode = icom_get_split_mode,
     .set_powerstat = icom_set_powerstat,
     .get_powerstat = icom_get_powerstat,
-    .send_morse = icom_send_morse
+    .send_morse = icom_send_morse,
+    .stop_morse = icom_stop_morse,
+    .wait_morse = rig_wait_morse
 };

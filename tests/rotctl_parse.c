@@ -24,6 +24,8 @@
  *
  */
 
+// TODO: Add "symmetric" set_conf + get_conf to rigctl+rotctl
+
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
@@ -83,6 +85,7 @@ extern int read_history();
 #endif
 
 #include "rotctl_parse.h"
+#include "sprintflst.h"
 
 /* Hash table implementation See:  http://uthash.sourceforge.net/ */
 #include "uthash.h"
@@ -155,7 +158,7 @@ struct test_table
 
 #define CHKSCN1ARG(a) if ((a) != 1) return -RIG_EINVAL; else do {} while(0)
 
-#define ACTION(f) rigctl_##f
+#define ACTION(f) rotctl_##f
 #define declare_proto_rot(f) static int (ACTION(f))(ROT *rot,           \
                                                     FILE *fout,         \
                                                     int interactive,    \
@@ -177,7 +180,14 @@ declare_proto_rot(stop);
 declare_proto_rot(park);
 declare_proto_rot(reset);
 declare_proto_rot(move);
+declare_proto_rot(set_level);
+declare_proto_rot(get_level);
+declare_proto_rot(set_func);
+declare_proto_rot(get_func);
+declare_proto_rot(set_parm);
+declare_proto_rot(get_parm);
 declare_proto_rot(get_info);
+declare_proto_rot(get_status);
 declare_proto_rot(inter_set_conf);  /* interactive mode set_conf */
 declare_proto_rot(send_cmd);
 declare_proto_rot(dump_state);
@@ -207,8 +217,15 @@ struct test_table test_list[] =
     { 'S', "stop",          ACTION(stop),               ARG_NONE, },
     { 'R', "reset",         ACTION(reset),              ARG_IN, "Reset" },
     { 'M', "move",          ACTION(move),               ARG_IN, "Direction", "Speed" },
+    { 'V',  "set_level",    ACTION(set_level),          ARG_IN, "Level", "Level Value" },
+    { 'v',  "get_level",    ACTION(get_level),          ARG_IN1 | ARG_OUT2, "Level", "Level Value" },
+    { 'U',  "set_func",     ACTION(set_func),           ARG_IN, "Func", "Func Status" },
+    { 'u',  "get_func",     ACTION(get_func),           ARG_IN1 | ARG_OUT2, "Func", "Func Status" },
+    { 'X',  "set_parm",     ACTION(set_parm),           ARG_IN, "Parm", "Parm Value" },
+    { 'x',  "get_parm",     ACTION(get_parm),           ARG_IN1 | ARG_OUT2, "Parm", "Parm Value" },
     { 'C', "set_conf",      ACTION(inter_set_conf),     ARG_IN, "Token", "Value" },
     { '_', "get_info",      ACTION(get_info),           ARG_OUT, "Info" },
+    { 's', "get_status",    ACTION(get_status),         ARG_OUT, "Status flags" },
     { 'w', "send_cmd",      ACTION(send_cmd),           ARG_IN1 | ARG_IN_LINE | ARG_OUT2, "Cmd", "Reply" },
     { '1', "dump_caps",     ACTION(dump_caps), },
     { 0x8f, "dump_state",   ACTION(dump_state),         ARG_OUT },
@@ -248,7 +265,7 @@ struct test_table *find_cmd_entry(int cmd)
 
 /* Structure for hash table provided by uthash.h
  *
- * Structure and hash funtions patterned after/copied from example.c
+ * Structure and hash functions patterned after/copied from example.c
  * distributed with the uthash package. See:  http://uthash.sourceforge.net/
  */
 struct mod_lst
@@ -298,7 +315,6 @@ int hash_model_id_sort(struct mod_lst *a, struct mod_lst *b)
 
 void hash_sort_by_model_id()
 {
-    // cppcheck-suppress *
     HASH_SORT(models, hash_model_id_sort);
 }
 
@@ -306,7 +322,7 @@ void hash_sort_by_model_id()
 /* Delete hash */
 void hash_delete_all()
 {
-    struct mod_lst *current_model, *tmp;
+    struct mod_lst *current_model, *tmp = NULL;
 
     HASH_ITER(hh, models, current_model, tmp)
     {
@@ -1018,14 +1034,14 @@ int rotctl_parse(ROT *my_rot, FILE *fin, FILE *fout, char *argv[], int argc,
             snprintf(cmd_name, sizeof(cmd_name), "%s", parsed_input[0] + 1);
 
             /* Sanity check as valid multiple character commands consist of
-             * alpha-numeric characters and the underscore ('_') character.
+             * alphanumeric characters and the underscore ('_') character.
              */
             for (j = 0; cmd_name[j] != '\0'; j++)
             {
                 if (!(isalnum((int)cmd_name[j]) || cmd_name[j] == '_'))
                 {
                     fprintf(stderr,
-                            "Valid multiple character command names contain alpha-numeric characters plus '_'\n");
+                            "Valid multiple character command names contain alphanumeric characters plus '_'\n");
                     return 0;
                 }
             }
@@ -1447,6 +1463,7 @@ int rotctl_parse(ROT *my_rot, FILE *fin, FILE *fout, char *argv[], int argc,
         /* only for rotctld */
         if (interactive && !prompt)
         {
+            rot_debug(RIG_DEBUG_TRACE, "%s: NETROTCTL_RET %d\n", __func__, retcode);
             fprintf(fout, NETROTCTL_RET "%d\n", retcode);
             // ext_resp = 0; // not used ?
             resp_sep = '\n';
@@ -1467,12 +1484,14 @@ int rotctl_parse(ROT *my_rot, FILE *fin, FILE *fout, char *argv[], int argc,
             /* netrotctl RIG_OK */
             if (!(cmd_entry->flags & ARG_OUT) && !ext_resp)
             {
+                rot_debug(RIG_DEBUG_TRACE, "%s: NETROTCTL_RET 0\n", __func__);
                 fprintf(fout, NETROTCTL_RET "0\n");
             }
 
             /* Extended Response protocol */
             else if (ext_resp && cmd != 0xf0)
             {
+                rot_debug(RIG_DEBUG_TRACE, "%s: NETROTCTL_RET 0\n", __func__);
                 fprintf(fout, NETROTCTL_RET "0\n");
                 resp_sep = '\n';
             }
@@ -1693,10 +1712,26 @@ declare_proto_rot(set_position)
 {
     azimuth_t az;
     elevation_t el;
+    char *comma_pos;
+
+    /* Fixing args with an invalid decimal separator. */
+    comma_pos = strchr(arg1, ',');
+
+    if (comma_pos)
+    {
+        *comma_pos = '.';
+    }
+
+    comma_pos = strchr(arg2, ',');
+
+    if (comma_pos)
+    {
+        *comma_pos = '.';
+    }
 
     CHKSCN1ARG(sscanf(arg1, "%f", &az));
     CHKSCN1ARG(sscanf(arg2, "%f", &el));
-    return rot_set_position(rot, az + rot->state.az_offset, el);
+    return rot_set_position(rot, az, el);
 }
 
 
@@ -1708,8 +1743,6 @@ declare_proto_rot(get_position)
     elevation_t el;
 
     status = rot_get_position(rot, &az, &el);
-
-    az -= rot->state.az_offset;
 
     if (status != RIG_OK)
     {
@@ -1776,6 +1809,32 @@ declare_proto_rot(get_info)
 }
 
 
+/* 's' */
+declare_proto_rot(get_status)
+{
+    int result;
+    rot_status_t status;
+    char s[SPRINTF_MAX_SIZE];
+
+    result = rot_get_status(rot, &status);
+
+    if (result != RIG_OK)
+    {
+        return result;
+    }
+
+    if ((interactive && prompt) || (interactive && !prompt && ext_resp))
+    {
+        fprintf(fout, "%s: ", cmd->arg1);
+    }
+
+    rot_sprintf_status(s, sizeof(s), status);
+    fprintf(fout, "%s%c", s, resp_sep);
+
+    return RIG_OK;
+}
+
+
 /* 'M' */
 declare_proto_rot(move)
 {
@@ -1805,6 +1864,467 @@ declare_proto_rot(move)
 
     CHKSCN1ARG(sscanf(arg2, "%d", &speed));
     return rot_move(rot, direction, speed);
+}
+
+
+/*
+ * 'V'
+ */
+declare_proto_rot(set_level)
+{
+    setting_t level;
+    value_t val;
+
+    if (!strcmp(arg1, "?"))
+    {
+        char s[SPRINTF_MAX_SIZE];
+        rot_sprintf_level(s, sizeof(s), rot->state.has_set_level);
+        fputs(s, fout);
+
+        if (rot->caps->set_ext_level)
+        {
+            sprintf_level_ext(s, sizeof(s), rot->caps->extlevels);
+            fputs(s, fout);
+        }
+
+        fputc('\n', fout);
+        return RIG_OK;
+    }
+
+    level = rot_parse_level(arg1);
+
+    if (!rot_has_set_level(rot, level))
+    {
+        const struct confparams *cfp;
+
+        cfp = rot_ext_lookup(rot, arg1);
+
+        if (!cfp)
+        {
+            return -RIG_ENAVAIL;    /* no such parameter */
+        }
+
+        switch (cfp->type)
+        {
+        case RIG_CONF_BUTTON:
+            /* arg is ignored */
+            val.i = 0; // avoid passing uninitialized data
+            break;
+
+        case RIG_CONF_CHECKBUTTON:
+        case RIG_CONF_COMBO:
+            CHKSCN1ARG(sscanf(arg2, "%d", &val.i));
+            break;
+
+        case RIG_CONF_NUMERIC:
+            CHKSCN1ARG(sscanf(arg2, "%f", &val.f));
+            break;
+
+        case RIG_CONF_STRING:
+            val.cs = arg2;
+            break;
+
+        default:
+            return -RIG_ECONF;
+        }
+
+        return rot_set_ext_level(rot, cfp->token, val);
+    }
+
+    if (ROT_LEVEL_IS_FLOAT(level))
+    {
+        CHKSCN1ARG(sscanf(arg2, "%f", &val.f));
+    }
+    else
+    {
+        CHKSCN1ARG(sscanf(arg2, "%d", &val.i));
+    }
+
+    return rot_set_level(rot, level, val);
+}
+
+
+/* 'v' */
+declare_proto_rot(get_level)
+{
+    int status;
+    setting_t level;
+    value_t val;
+
+    if (!strcmp(arg1, "?"))
+    {
+        char s[SPRINTF_MAX_SIZE];
+        rot_sprintf_level(s, sizeof(s), rot->state.has_get_level);
+        fputs(s, fout);
+
+        if (rot->caps->get_ext_level)
+        {
+            sprintf_level_ext(s, sizeof(s), rot->caps->extlevels);
+            fputs(s, fout);
+        }
+
+        fputc('\n', fout);
+        return RIG_OK;
+    }
+
+    level = rot_parse_level(arg1);
+
+    if (!rot_has_get_level(rot, level))
+    {
+        const struct confparams *cfp;
+
+        cfp = rot_ext_lookup(rot, arg1);
+
+        if (!cfp)
+        {
+            return -RIG_EINVAL;    /* no such parameter */
+        }
+
+        status = rot_get_ext_level(rot, cfp->token, &val);
+
+        if (status != RIG_OK)
+        {
+            return status;
+        }
+
+        if (interactive && prompt)
+        {
+            fprintf(fout, "%s: ", cmd->arg2);
+        }
+
+        switch (cfp->type)
+        {
+        case RIG_CONF_BUTTON:
+            /* there's no sense in retrieving value of stateless button */
+            return -RIG_EINVAL;
+
+        case RIG_CONF_CHECKBUTTON:
+        case RIG_CONF_COMBO:
+            fprintf(fout, "%d\n", val.i);
+            break;
+
+        case RIG_CONF_NUMERIC:
+            fprintf(fout, "%f\n", val.f);
+            break;
+
+        case RIG_CONF_STRING:
+            fprintf(fout, "%s\n", val.s);
+            break;
+
+        default:
+            return -RIG_ECONF;
+        }
+
+        return status;
+    }
+
+    status = rot_get_level(rot, level, &val);
+
+    if (status != RIG_OK)
+    {
+        return status;
+    }
+
+    if (interactive && prompt)
+    {
+        fprintf(fout, "%s: ", cmd->arg2);
+    }
+
+    if (ROT_LEVEL_IS_FLOAT(level))
+    {
+        fprintf(fout, "%f\n", val.f);
+    }
+    else
+    {
+        fprintf(fout, "%d\n", val.i);
+    }
+
+    return status;
+}
+
+
+/* 'U' */
+declare_proto_rot(set_func)
+{
+    setting_t func;
+    int func_stat;
+
+    if (!strcmp(arg1, "?"))
+    {
+        char s[SPRINTF_MAX_SIZE];
+        rot_sprintf_func(s, sizeof(s), rot->state.has_set_func);
+        fprintf(fout, "%s\n", s);
+        return RIG_OK;
+    }
+
+    func = rot_parse_func(arg1);
+
+    if (!rot_has_set_func(rot, func))
+    {
+        const struct confparams *cfp;
+
+        cfp = rot_ext_lookup(rot, arg1);
+
+        if (!cfp)
+        {
+            return -RIG_ENAVAIL;    /* no such parameter */
+        }
+
+        CHKSCN1ARG(sscanf(arg2, "%d", &func_stat));
+
+        return rot_set_ext_func(rot, cfp->token, func_stat);
+    }
+
+    CHKSCN1ARG(sscanf(arg2, "%d", &func_stat));
+    return rot_set_func(rot, func, func_stat);
+}
+
+
+/* 'u' */
+declare_proto_rot(get_func)
+{
+    int status;
+    setting_t func;
+    int func_stat;
+
+    if (!strcmp(arg1, "?"))
+    {
+        char s[SPRINTF_MAX_SIZE];
+        rot_sprintf_func(s, sizeof(s), rot->state.has_get_func);
+        fprintf(fout, "%s\n", s);
+        return RIG_OK;
+    }
+
+    func = rot_parse_func(arg1);
+
+    if (!rot_has_get_func(rot, func))
+    {
+        const struct confparams *cfp;
+
+        cfp = rot_ext_lookup(rot, arg1);
+
+        if (!cfp)
+        {
+            return -RIG_EINVAL;    /* no such parameter */
+        }
+
+        status = rot_get_ext_func(rot, cfp->token, &func_stat);
+
+        if (status != RIG_OK)
+        {
+            return status;
+        }
+
+        if (interactive && prompt)
+        {
+            fprintf(fout, "%s: ", cmd->arg2);
+        }
+
+        fprintf(fout, "%d\n", func_stat);
+
+        return status;
+    }
+
+    status = rot_get_func(rot, func, &func_stat);
+
+    if (status != RIG_OK)
+    {
+        return status;
+    }
+
+    if (interactive && prompt)
+    {
+        fprintf(fout, "%s: ", cmd->arg2);
+    }
+
+    fprintf(fout, "%d\n", func_stat);
+
+    return status;
+}
+
+
+/* 'R' */
+declare_proto_rot(set_parm)
+{
+    setting_t parm;
+    value_t val;
+
+    if (!strcmp(arg1, "?"))
+    {
+        char s[SPRINTF_MAX_SIZE];
+        rot_sprintf_parm(s, sizeof(s), rot->state.has_set_parm);
+        fprintf(fout, "%s\n", s);
+        return RIG_OK;
+    }
+
+    parm = rot_parse_parm(arg1);
+
+    if (!rot_has_set_parm(rot, parm))
+    {
+        const struct confparams *cfp;
+
+        cfp = rot_ext_lookup(rot, arg1);
+
+        if (!cfp)
+        {
+            return -RIG_EINVAL;    /* no such parameter */
+        }
+
+        switch (cfp->type)
+        {
+        case RIG_CONF_BUTTON:
+            /* arg is ignored */
+            val.i = 0; // avoid passing uninitialized data
+            break;
+
+        case RIG_CONF_CHECKBUTTON:
+        case RIG_CONF_COMBO:
+            CHKSCN1ARG(sscanf(arg2, "%d", &val.i));
+            break;
+
+        case RIG_CONF_NUMERIC:
+            CHKSCN1ARG(sscanf(arg2, "%f", &val.f));
+            break;
+
+        case RIG_CONF_STRING:
+            val.cs = arg2;
+            break;
+
+        case RIG_CONF_BINARY:
+            val.b.d = (unsigned char *)arg2;
+            break;
+
+        default:
+            return -RIG_ECONF;
+        }
+
+        return rot_set_ext_parm(rot, cfp->token, val);
+    }
+
+    if (ROT_PARM_IS_FLOAT(parm))
+    {
+        CHKSCN1ARG(sscanf(arg2, "%f", &val.f));
+    }
+    else
+    {
+        CHKSCN1ARG(sscanf(arg2, "%d", &val.i));
+    }
+
+    return rot_set_parm(rot, parm, val);
+}
+
+
+/* 'r' */
+declare_proto_rot(get_parm)
+{
+    int status;
+    setting_t parm;
+    value_t val;
+    char buffer[RIG_BIN_MAX];
+
+    if (!strcmp(arg1, "?"))
+    {
+        char s[SPRINTF_MAX_SIZE];
+        rot_sprintf_parm(s, sizeof(s), rot->state.has_get_parm);
+        fprintf(fout, "%s\n", s);
+        return RIG_OK;
+    }
+
+    parm = rot_parse_parm(arg1);
+
+    if (!rot_has_get_parm(rot, parm))
+    {
+        const struct confparams *cfp;
+
+        cfp = rot_ext_lookup(rot, arg1);
+
+        if (!cfp)
+        {
+            return -RIG_EINVAL;    /* no such parameter */
+        }
+
+        switch (cfp->type)
+        {
+        case RIG_CONF_STRING:
+            memset(buffer, '0', sizeof(buffer));
+            buffer[sizeof(buffer) - 1] = 0;
+            val.s = buffer;
+            break;
+
+        case RIG_CONF_BINARY:
+            memset(buffer, 0, sizeof(buffer));
+            val.b.d = (unsigned char *)buffer;
+            val.b.l = RIG_BIN_MAX;
+            break;
+
+        default:
+            break;
+        }
+
+        status = rot_get_ext_parm(rot, cfp->token, &val);
+
+        if (status != RIG_OK)
+        {
+            return status;
+        }
+
+        if (interactive && prompt)
+        {
+            fprintf(fout, "%s: ", cmd->arg2);
+        }
+
+        switch (cfp->type)
+        {
+        case RIG_CONF_BUTTON:
+            /* there's not sense in retrieving value of stateless button */
+            return -RIG_EINVAL;
+
+        case RIG_CONF_CHECKBUTTON:
+        case RIG_CONF_COMBO:
+            fprintf(fout, "%d\n", val.i);
+            break;
+
+        case RIG_CONF_NUMERIC:
+            fprintf(fout, "%f\n", val.f);
+            break;
+
+        case RIG_CONF_STRING:
+            fprintf(fout, "%s\n", val.s);
+            break;
+
+        case RIG_CONF_BINARY:
+            dump_hex((unsigned char *)buffer, val.b.l);
+            break;
+
+        default:
+            return -RIG_ECONF;
+        }
+
+        return status;
+    }
+
+    status = rot_get_parm(rot, parm, &val);
+
+    if (status != RIG_OK)
+    {
+        return status;
+    }
+
+    if (interactive && prompt)
+    {
+        fprintf(fout, "%s: ", cmd->arg2);
+    }
+
+    if (ROT_PARM_IS_FLOAT(parm))
+    {
+        fprintf(fout, "%f\n", val.f);
+    }
+    else
+    {
+        fprintf(fout, "%d\n", val.i);
+    }
+
+    return status;
 }
 
 
@@ -1959,7 +2479,7 @@ declare_proto_rot(send_cmd)
 
     rs = &rot->state;
 
-    serial_flush(&rs->rotport);
+    rig_flush(&rs->rotport);
 
     retval = write_block(&rs->rotport, bufcmd, cmd_len);
 
@@ -2155,7 +2675,8 @@ declare_proto_rot(d_mm2dec)
     CHKSCN1ARG(sscanf(arg2, "%lf", &min));
     CHKSCN1ARG(sscanf(arg3, "%d", &sw));
 
-    dec_deg = dmmm2dec(deg, min, sw);
+    dec_deg = dmmm2dec(deg, min, sw,
+                       0.0); // we'll add real seconds when somebody asks for it
 
     if ((interactive && prompt) || (interactive && !prompt && ext_resp))
     {

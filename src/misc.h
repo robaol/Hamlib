@@ -26,7 +26,7 @@
 
 
 /*
- * Carefull!! These macros are NOT reentrant!
+ * Careful!! These macros are NOT reentrant!
  * ie. they may not be executed atomically,
  * thus not ensure mutual exclusion.
  * Fix it when making Hamlib reentrant!  --SF
@@ -49,7 +49,7 @@ void dump_hex(const unsigned char ptr[], size_t size);
  *  and return a pointer to this array.
  *
  * from_bcd() converts a little endian BCD array to long long int
- *  reprensentation, and return it.
+ *  representation, and return it.
  *
  * bcd_len is the number of digits in the BCD array.
  */
@@ -72,7 +72,11 @@ extern HAMLIB_EXPORT(unsigned long long) from_bcd_be(const unsigned char
                                                      bcd_data[],
                                                      unsigned bcd_len);
 
-extern HAMLIB_EXPORT(int) sprintf_freq(char *str, freq_t);
+extern HAMLIB_EXPORT(double) morse_code_dot_to_millis(int wpm);
+extern HAMLIB_EXPORT(int) dot10ths_to_millis(int dot10ths, int wpm);
+extern HAMLIB_EXPORT(int) millis_to_dot10ths(int millis, int wpm);
+
+extern HAMLIB_EXPORT(int) sprintf_freq(char *str, int len, freq_t);
 
 /* flag that determines if AI mode should be restored on exit on
    applicable rigs - See rig_no_restore_ai() */
@@ -84,12 +88,10 @@ extern int no_restore_ai;
 
 /* needs config.h included beforehand in .c file */
 #ifdef HAVE_INTTYPES_H
-// cppcheck-suppress *
 #  include <inttypes.h>
 #endif
 
 #ifdef HAVE_SYS_TIME_H
-// cppcheck-suppress *
 #  include <sys/time.h>
 #endif
 
@@ -100,9 +102,13 @@ extern HAMLIB_EXPORT(void) rig_force_cache_timeout(struct timeval *tv);
 
 extern HAMLIB_EXPORT(setting_t) rig_idx2setting(int i);
 
-extern HAMLIB_EXPORT(int) hl_usleep(useconds_t usec);
+extern HAMLIB_EXPORT(int) hl_usleep(rig_useconds_t usec);
 
 extern HAMLIB_EXPORT(double) elapsed_ms(struct timespec *start, int start_flag);
+
+extern HAMLIB_EXPORT(vfo_t) vfo_fixup(RIG *rig, vfo_t vfo);
+
+extern HAMLIB_EXPORT(int) parse_hoststr(char *host, char hoststr[256], char port[6]);
 
 #ifdef PRId64
 /** \brief printf(3) format to be used for long long (64bits) type */
@@ -132,7 +138,33 @@ extern HAMLIB_EXPORT(double) elapsed_ms(struct timespec *start, int start_flag);
 #  endif
 #endif
 
+#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+void errmsg(int err, char *s, const char *func, const char *file, int line);
+#define ERRMSG(err, s) errmsg(err,  s, __func__, __FILENAME__, __LINE__)
+#define ENTERFUNC rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):%s entered\n", __FILENAME__, __LINE__, __func__)
+// we need to refer to rc just once as it 
+// could be a function call 
+#define RETURNFUNC(rc) do { \
+			            int rctmp = rc; \
+                        rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):%s return(%ld)\n", __FILENAME__, __LINE__, __func__, (long int) (rctmp)); \
+                        return (rctmp); \
+                       } while(0)
 
+#if 0 // 5.0
+    elapsed_ms(&rig->state.cache.time_freqMainC, HAMLIB_ELAPSED_INVALIDATE);
+#endif
+#define CACHE_RESET {\
+    elapsed_ms(&rig->state.cache.time_freq, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_freqCurr, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_freqMainA, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_freqMainB, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_freqSubA, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_freqSubB, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_vfo, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_mode, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_ptt, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_split, HAMLIB_ELAPSED_INVALIDATE);\
+     }
 
 __END_DECLS
 

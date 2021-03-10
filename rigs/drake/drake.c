@@ -69,7 +69,7 @@ int drake_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 
     rs = &rig->state;
 
-    serial_flush(&rs->rigport);
+    rig_flush(&rs->rigport);
 
     retval = write_block(&rs->rigport, cmd, cmd_len);
 
@@ -563,6 +563,7 @@ int drake_set_mem(RIG *rig, vfo_t vfo, int ch)
 
     len = sprintf(buf, "C%03d" EOM, ch);
 
+    ack_len = 0; // fix compile-time warning "possibly uninitialized"
     retval = drake_transaction(rig, buf, len, ackbuf, &ack_len);
 
     if (ack_len != 2)
@@ -614,7 +615,7 @@ int drake_get_mem(RIG *rig, vfo_t vfo, int *ch)
  * drake_set_chan
  * Assumes rig!=NULL
  */
-int drake_set_chan(RIG *rig, const channel_t *chan)
+int drake_set_chan(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     struct drake_priv_data *priv = rig->state.priv;
     vfo_t   old_vfo;
@@ -670,7 +671,7 @@ int drake_set_chan(RIG *rig, const channel_t *chan)
  * drake_get_chan
  * Assumes rig!=NULL
  */
-int drake_get_chan(RIG *rig, channel_t *chan, int read_only)
+int drake_get_chan(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
     struct drake_priv_data *priv = rig->state.priv;
     vfo_t   old_vfo;
@@ -721,7 +722,7 @@ int drake_get_chan(RIG *rig, channel_t *chan, int read_only)
         return RIG_OK;
     }
 
-    //now decypher it
+    //now decipher it
     retval = drake_transaction(rig, "RA" EOM, 3, mdbuf, &mdbuf_len);
 
     if (retval != RIG_OK)
@@ -852,6 +853,7 @@ int drake_get_chan(RIG *rig, channel_t *chan, int read_only)
 
 
     strncpy(chan->channel_desc, mdbuf + 25, 7);
+    chan->channel_desc[7] = '\0'; // in case strncpy did not terminate the string
 
     //now put the radio back the way it was
     //we apparently can't do a read-only channel read

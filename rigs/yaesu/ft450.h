@@ -67,12 +67,28 @@
 
 #define FT450_FUNCS  (RIG_FUNC_TONE|RIG_FUNC_TSQL|RIG_FUNC_LOCK|\
                 RIG_FUNC_MON|RIG_FUNC_NB|RIG_FUNC_NR|RIG_FUNC_VOX|\
-                RIG_FUNC_FBKIN|RIG_FUNC_MN|RIG_FUNC_TUNER)
+                RIG_FUNC_FBKIN|RIG_FUNC_MN|RIG_FUNC_TUNER|\
+                RIG_FUNC_RIT|RIG_FUNC_XIT\
+                )
 
 #define FT450_VFO_OPS (RIG_OP_TUNE|RIG_OP_CPY|RIG_OP_XCHG|\
                RIG_OP_UP|RIG_OP_DOWN|RIG_OP_BAND_UP|RIG_OP_BAND_DOWN|\
                RIG_OP_TOGGLE)
 
+
+// Borrowed from FLRig -- Thanks to Dave W1HKJ
+#define FT450_RFPOWER_METER_CAL \
+    { \
+        6, \
+        { \
+            {10, 0.8f}, \
+            {50, 8.0f}, \
+            {100, 26.0f}, \
+            {150, 54.0f}, \
+            {200, 92.0f}, \
+            {250, 140.0f}, \
+        } \
+    }
 
 /* TBC */
 #define FT450_STR_CAL { 3, \

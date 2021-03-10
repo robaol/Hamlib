@@ -476,7 +476,7 @@ const struct rig_caps fasdr_caps =
 {
     RIG_MODEL(RIG_MODEL_FASDR),
     .model_name =       "FA-SDR",
-    .mfg_name =     "Funkamatuer",
+    .mfg_name =     "Funkamateur",
     .version =      BACKEND_VER ".0",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_ALPHA,
@@ -968,7 +968,7 @@ static int setBPF(RIG *rig, int enable)
     unsigned short FilterCrossOver[16];
     int nBytes;
 
-    // Does FilterCrossOver needs endianess ordering ?
+    // Does FilterCrossOver needs endianness ordering ?
 
     // first find out how may cross over points there are for the 1st bank, use 255 for index
     nBytes = libusb_control_transfer(udh, REQUEST_TYPE_IN,

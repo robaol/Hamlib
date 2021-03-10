@@ -153,8 +153,9 @@ typedef channel_str_t band_stack_reg_t;
 
 static int ic746_set_parm(RIG *rig, setting_t parm, value_t val);
 static int ic746_get_parm(RIG *rig, setting_t parm, value_t *val);
-static int ic746pro_get_channel(RIG *rig, channel_t *chan, int read_only);
-static int ic746pro_set_channel(RIG *rig, const channel_t *chan);
+static int ic746pro_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
+                                int read_only);
+static int ic746pro_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan);
 static int ic746pro_set_ext_parm(RIG *rig, token_t token, value_t val);
 static int ic746pro_get_ext_parm(RIG *rig, token_t token, value_t *val);
 
@@ -208,6 +209,7 @@ const struct rig_caps ic746_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_ANN,
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_KEYSPD] = { .min = { .i = 6 }, .max = { .i = 48 }, .step = { .i = 1 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 900 }, .step = { .i = 1 } },
@@ -513,7 +515,7 @@ const struct rig_caps ic746pro_caps =
         {RIG_MODE_FM, kHz(15)},
         {RIG_MODE_FM, kHz(7)},
 
-        /* There are 5 rtty filters when rtty filter mode is set (default condition) { 1k, 500, 350, 300, 250 }. These are fixed. If rtty filter mode is unset there are 3 general IF filters { 2.4k, 500, 250 are the defaults }.  These can be changed. There is a "twin-peak" filter mode as well.  It boosts the 2125 and 2295 recieve frequency reponse.    The S_FUNC_RF (rtty filter) turns the rtty filter mode on and off. */
+        /* There are 5 rtty filters when rtty filter mode is set (default condition) { 1k, 500, 350, 300, 250 }. These are fixed. If rtty filter mode is unset there are 3 general IF filters { 2.4k, 500, 250 are the defaults }.  These can be changed. There is a "twin-peak" filter mode as well.  It boosts the 2125 and 2295 receive frequency response.    The S_FUNC_RF (rtty filter) turns the rtty filter mode on and off. */
 
         {RIG_MODE_CW | RIG_MODE_CWR | RIG_MODE_RTTY | RIG_MODE_RTTYR, Hz(500)}, /* RTTY &  "normal" IF Filters */
         {RIG_MODE_CW | RIG_MODE_CWR | RIG_MODE_RTTY | RIG_MODE_RTTYR, Hz(250)}, /* RTTY & "narrow" IF Filters */
@@ -904,7 +906,7 @@ int ic746_get_parm(RIG *rig, setting_t parm, value_t *val)
  *
  * If memory is empty it will return RIG_OK,but every thing will be null. Where do we boundary check?
  */
-int ic746pro_get_channel(RIG *rig, channel_t *chan, int read_only)
+int ic746pro_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
     struct icom_priv_data *priv;
     struct rig_state *rs;
@@ -1070,7 +1072,7 @@ int ic746pro_get_channel(RIG *rig, channel_t *chan, int read_only)
  * ic746pro_set_channel
  * Assumes rig!=NULL, rig->state.priv!=NULL, chan!=NULL
  */
-int ic746pro_set_channel(RIG *rig, const channel_t *chan)
+int ic746pro_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     struct icom_priv_data *priv;
     struct rig_state *rs;
@@ -1102,7 +1104,7 @@ int ic746pro_set_channel(RIG *rig, const channel_t *chan)
         // RX
         to_bcd(membuf.rx.freq, chan->freq, freq_len * 2);
 
-        retval = rig2icom_mode(rig, chan->mode, chan->width,
+        retval = rig2icom_mode(rig, vfo, chan->mode, chan->width,
                                &membuf.rx.mode, &membuf.rx.pb);
 
         if (retval != RIG_OK)
@@ -1149,7 +1151,7 @@ int ic746pro_set_channel(RIG *rig, const channel_t *chan)
         // TX
         to_bcd(membuf.tx.freq, chan->tx_freq, freq_len * 2);
 
-        retval = rig2icom_mode(rig, chan->tx_mode, chan->tx_width,
+        retval = rig2icom_mode(rig, vfo, chan->tx_mode, chan->tx_width,
                                &membuf.tx.mode, &membuf.tx.pb);
 
         if (retval != RIG_OK)

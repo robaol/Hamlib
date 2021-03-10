@@ -48,13 +48,73 @@
 #  include <sys/time.h>
 #endif
 
-#include <unistd.h>
+#include <math.h>
 
 #include <hamlib/rig.h>
+#include <hamlib/rotator.h>
 #include <hamlib/amplifier.h>
 
 #include "misc.h"
+#include "serial.h"
+#include "network.h"
 
+#ifdef __APPLE__
+
+#include <time.h>
+
+#if !defined(CLOCK_REALTIME) && !defined(CLOCK_MONOTONIC)
+//
+// MacOS < 10.12 does not have clock_gettime
+//
+// Contribution from github user "ra1nb0w"
+//
+
+#define CLOCK_REALTIME  0
+#define CLOCK_MONOTONIC 6
+typedef int clockid_t;
+
+#include <sys/time.h>
+#include <mach/mach_time.h>
+
+static int clock_gettime(clockid_t clock_id, struct timespec *tp)
+{
+    if (clock_id == CLOCK_REALTIME)
+    {
+        struct timeval t;
+
+        if (gettimeofday(&t, NULL) != 0)
+        {
+            return -1;
+        }
+
+        tp->tv_sec = t.tv_sec;
+        tp->tv_nsec = t.tv_usec * 1000;
+    }
+    else if (clock_id == CLOCK_MONOTONIC)
+    {
+        static mach_timebase_info_data_t info = { 0, 0 };
+
+        if (info.denom == 0)
+        {
+            mach_timebase_info(&info);
+        }
+
+        uint64_t t = mach_absolute_time() * info.numer / info.denom;
+        tp->tv_sec = t / 1000000000;
+        tp->tv_nsec = t % 1000000000;
+    }
+    else
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    return 0;
+}
+
+#endif // !HAVE_CLOCK_GETTIME
+
+#endif // __APPLE__
 
 /**
  * \brief Convert from binary to 4-bit BCD digits, little-endian
@@ -228,6 +288,48 @@ unsigned long long HAMLIB_API from_bcd_be(const unsigned char bcd_data[],
     return f;
 }
 
+/**
+ * \brief Convert duration of one morse code dot (element) to milliseconds at the given speed.
+ * \param wpm morse code speed in words per minute
+ * \return double duration in milliseconds
+ *
+ * The morse code speed is calculated using the standard based on word PARIS.
+ *
+ * "If you send PARIS 5 times in a minute (5WPM) you have sent 250 elements (using correct spacing).
+ * 250 elements into 60 seconds per minute = 240 milliseconds per element."
+ *
+ * Source: http://kent-engineers.com/codespeed.htm
+ */
+double morse_code_dot_to_millis(int wpm)
+{
+    return 240.0 * (5.0 / (double) wpm);
+}
+
+/**
+ * \brief Convert duration of tenths of morse code dots to milliseconds at the given speed.
+ * \param tenths_of_dots number of 1/10ths of dots
+ * \param wpm morse code speed in words per minute
+ * \return int duration in milliseconds
+ *
+ * The morse code speed is calculated using the standard based on word PARIS.
+ */
+int dot10ths_to_millis(int dot10ths, int wpm)
+{
+    return ceil(morse_code_dot_to_millis(wpm) * (double) dot10ths / 10.0);
+}
+
+/**
+ * \brief Convert duration in milliseconds to tenths of morse code dots at the given speed.
+ * \param millis duration in milliseconds
+ * \param wpm morse code speed in words per minute
+ * \return int number of 1/10ths of dots
+ *
+ * The morse code speed is calculated using the standard based on word PARIS.
+ */
+int millis_to_dot10ths(int millis, int wpm)
+{
+    return ceil(millis / morse_code_dot_to_millis(wpm) * 10.0);
+}
 
 //! @cond Doxygen_Suppress
 #ifndef llabs
@@ -245,7 +347,7 @@ unsigned long long HAMLIB_API from_bcd_be(const unsigned char bcd_data[],
  * pretty print frequencies
  * str must be long enough. max can be as long as 17 chars
  */
-int HAMLIB_API sprintf_freq(char *str, freq_t freq)
+int HAMLIB_API sprintf_freq(char *str, int nlen, freq_t freq)
 {
     double f;
     char *hz;
@@ -326,6 +428,7 @@ static struct
     { RIG_MODE_PKTLSB, "PKTLSB" },
     { RIG_MODE_PKTUSB, "PKTUSB" },
     { RIG_MODE_PKTFM, "PKTFM" },
+    { RIG_MODE_PKTFMN, "PKTFMN" },
     { RIG_MODE_ECSSUSB, "ECSSUSB" },
     { RIG_MODE_ECSSLSB, "ECSSLSB" },
     { RIG_MODE_FAX, "FAX" },
@@ -345,6 +448,7 @@ static struct
     { RIG_MODE_PSK, "PSK"},
     { RIG_MODE_PSKR, "PSKR"},
     { RIG_MODE_C4FM, "C4FM"},
+    { RIG_MODE_SPEC, "SPEC"},
     { RIG_MODE_NONE, "" },
 };
 
@@ -526,7 +630,7 @@ static struct
 {
     setting_t func;
     const char *str;
-} func_str[] =
+} rig_func_str[] =
 {
     { RIG_FUNC_FAGC, "FAGC" },
     { RIG_FUNC_NB, "NB" },
@@ -572,11 +676,21 @@ static struct
     { RIG_FUNC_NONE, "" },
 };
 
+
+static struct
+{
+    setting_t func;
+    const char *str;
+} rot_func_str[] =
+{
+    { ROT_FUNC_NONE, "" },
+};
+
+
 /**
  * utility function to convert index to bit value
  *
  */
-// cppcheck-suppress *
 uint64_t rig_idx2setting(int i)
 {
     return ((uint64_t)1) << i;
@@ -595,15 +709,40 @@ setting_t HAMLIB_API rig_parse_func(const char *s)
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    for (i = 0 ; func_str[i].str[0] != '\0'; i++)
+    for (i = 0 ; rig_func_str[i].str[0] != '\0'; i++)
     {
-        if (!strcmp(s, func_str[i].str))
+        if (!strcmp(s, rig_func_str[i].str))
         {
-            return func_str[i].func;
+            return rig_func_str[i].func;
         }
     }
 
     return RIG_FUNC_NONE;
+}
+
+
+/**
+ * \brief Convert alpha string to enum ROT_FUNC_...
+ * \param s input alpha string
+ * \return ROT_FUNC_...
+ *
+ * \sa rot_func_e()
+ */
+setting_t HAMLIB_API rot_parse_func(const char *s)
+{
+    int i;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    for (i = 0 ; rot_func_str[i].str[0] != '\0'; i++)
+    {
+        if (!strcmp(s, rot_func_str[i].str))
+        {
+            return rot_func_str[i].func;
+        }
+    }
+
+    return ROT_FUNC_NONE;
 }
 
 
@@ -626,11 +765,42 @@ const char *HAMLIB_API rig_strfunc(setting_t func)
         return "";
     }
 
-    for (i = 0; func_str[i].str[0] != '\0'; i++)
+    for (i = 0; rig_func_str[i].str[0] != '\0'; i++)
     {
-        if (func == func_str[i].func)
+        if (func == rig_func_str[i].func)
         {
-            return func_str[i].str;
+            return rig_func_str[i].str;
+        }
+    }
+
+    return "";
+}
+
+
+/**
+ * \brief Convert enum ROT_FUNC_... to alpha string
+ * \param func ROT_FUNC_...
+ * \return alpha string
+ *
+ * \sa rot_func_e()
+ */
+const char *HAMLIB_API rot_strfunc(setting_t func)
+{
+    int i;
+
+    // too verbose to keep on unless debugging this in particular
+    //rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    if (func == ROT_FUNC_NONE)
+    {
+        return "";
+    }
+
+    for (i = 0; rot_func_str[i].str[0] != '\0'; i++)
+    {
+        if (func == rot_func_str[i].func)
+        {
+            return rot_func_str[i].str;
         }
     }
 
@@ -642,7 +812,7 @@ static struct
 {
     setting_t level;
     const char *str;
-} level_str[] =
+} rig_level_str[] =
 {
     { RIG_LEVEL_PREAMP, "PREAMP" },
     { RIG_LEVEL_ATT, "ATT" },
@@ -682,14 +852,27 @@ static struct
     { RIG_LEVEL_NOTCHF_RAW, "NOTCHF_RAW" },
     { RIG_LEVEL_MONITOR_GAIN, "MONITOR_GAIN" },
     { RIG_LEVEL_NB, "NB" },
+    { RIG_LEVEL_RFPOWER_METER_WATTS, "RFPOWER_METER_WATTS" },
     { RIG_LEVEL_NONE, "" },
 };
+
 
 static struct
 {
     setting_t level;
     const char *str;
-} levelamp_str[] =
+} rot_level_str[] =
+{
+    { ROT_LEVEL_SPEED, "SPEED" },
+    { ROT_LEVEL_NONE, "" },
+};
+
+
+static struct
+{
+    setting_t level;
+    const char *str;
+} amp_level_str[] =
 {
     { AMP_LEVEL_SWR, "SWR" },
     { AMP_LEVEL_NH, "NH" },
@@ -716,16 +899,42 @@ setting_t HAMLIB_API rig_parse_level(const char *s)
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    for (i = 0 ; level_str[i].str[0] != '\0'; i++)
+    for (i = 0 ; rig_level_str[i].str[0] != '\0'; i++)
     {
-        if (!strcmp(s, level_str[i].str))
+        if (!strcmp(s, rig_level_str[i].str))
         {
-            return level_str[i].level;
+            return rig_level_str[i].level;
         }
     }
 
     return RIG_LEVEL_NONE;
 }
+
+
+/**
+ * \brief Convert alpha string to enum ROT_LEVEL_...
+ * \param s input alpha string
+ * \return ROT_LEVEL_...
+ *
+ * \sa rot_level_e()
+ */
+setting_t HAMLIB_API rot_parse_level(const char *s)
+{
+    int i;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    for (i = 0 ; rot_level_str[i].str[0] != '\0'; i++)
+    {
+        if (!strcmp(s, rot_level_str[i].str))
+        {
+            return rot_level_str[i].level;
+        }
+    }
+
+    return ROT_LEVEL_NONE;
+}
+
 
 /**
  * \brief Convert alpha string to enum AMP_LEVEL_...
@@ -741,20 +950,20 @@ setting_t HAMLIB_API amp_parse_level(const char *s)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called level=%s\n", __func__, s);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called str=%s\n", __func__,
-              levelamp_str[0].str);
+              amp_level_str[0].str);
 
-    for (i = 0 ; levelamp_str[i].str[0] != '\0'; i++)
+    for (i = 0 ; amp_level_str[i].str[0] != '\0'; i++)
     {
         rig_debug(RIG_DEBUG_VERBOSE, "%s called checking=%s\n", __func__,
-                  levelamp_str[i].str);
+                  amp_level_str[i].str);
 
-        if (!strcmp(s, levelamp_str[i].str))
+        if (!strcmp(s, amp_level_str[i].str))
         {
-            return levelamp_str[i].level;
+            return amp_level_str[i].level;
         }
     }
 
-    return RIG_LEVEL_NONE;
+    return AMP_LEVEL_NONE;
 }
 
 
@@ -776,16 +985,47 @@ const char *HAMLIB_API rig_strlevel(setting_t level)
         return "";
     }
 
-    for (i = 0; level_str[i].str[0] != '\0'; i++)
+    for (i = 0; rig_level_str[i].str[0] != '\0'; i++)
     {
-        if (level == level_str[i].level)
+        if (level == rig_level_str[i].level)
         {
-            return level_str[i].str;
+            return rig_level_str[i].str;
         }
     }
 
     return "";
 }
+
+
+/**
+ * \brief Convert enum ROT_LEVEL_... to alpha string
+ * \param level ROT_LEVEL_...
+ * \return alpha string
+ *
+ * \sa rot_level_e()
+ */
+const char *HAMLIB_API rot_strlevel(setting_t level)
+{
+    int i;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    if (level == ROT_LEVEL_NONE)
+    {
+        return "";
+    }
+
+    for (i = 0; rot_level_str[i].str[0] != '\0'; i++)
+    {
+        if (level == rot_level_str[i].level)
+        {
+            return rot_level_str[i].str;
+        }
+    }
+
+    return "";
+}
+
 
 /**
  * \brief Convert enum AMP_LEVEL_... to alpha string
@@ -805,11 +1045,11 @@ const char *HAMLIB_API amp_strlevel(setting_t level)
         return "";
     }
 
-    for (i = 0; levelamp_str[i].str[0] != '\0'; i++)
+    for (i = 0; amp_level_str[i].str[0] != '\0'; i++)
     {
-        if (level == levelamp_str[i].level)
+        if (level == amp_level_str[i].level)
         {
-            return levelamp_str[i].str;
+            return amp_level_str[i].str;
         }
     }
 
@@ -821,7 +1061,7 @@ static struct
 {
     setting_t parm;
     const char *str;
-} parm_str[] =
+} rig_parm_str[] =
 {
     { RIG_PARM_ANN, "ANN" },
     { RIG_PARM_APO, "APO" },
@@ -832,6 +1072,16 @@ static struct
     { RIG_PARM_KEYLIGHT, "KEYLIGHT"},
     { RIG_PARM_SCREENSAVER, "SCREENSAVER"},
     { RIG_PARM_NONE, "" },
+};
+
+
+static struct
+{
+    setting_t parm;
+    const char *str;
+} rot_parm_str[] =
+{
+    { ROT_PARM_NONE, "" },
 };
 
 
@@ -848,15 +1098,40 @@ setting_t HAMLIB_API rig_parse_parm(const char *s)
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
-    for (i = 0 ; parm_str[i].str[0] != '\0'; i++)
+    for (i = 0 ; rig_parm_str[i].str[0] != '\0'; i++)
     {
-        if (!strcmp(s, parm_str[i].str))
+        if (!strcmp(s, rig_parm_str[i].str))
         {
-            return parm_str[i].parm;
+            return rig_parm_str[i].parm;
         }
     }
 
     return RIG_PARM_NONE;
+}
+
+
+/**
+ * \brief Convert alpha string to ROT_PARM_...
+ * \param s input alpha string
+ * \return ROT_PARM_...
+ *
+ * \sa rot_parm_e()
+ */
+setting_t HAMLIB_API rot_parse_parm(const char *s)
+{
+    int i;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    for (i = 0 ; rot_parm_str[i].str[0] != '\0'; i++)
+    {
+        if (!strcmp(s, rot_parm_str[i].str))
+        {
+            return rot_parm_str[i].parm;
+        }
+    }
+
+    return ROT_PARM_NONE;
 }
 
 
@@ -878,11 +1153,41 @@ const char *HAMLIB_API rig_strparm(setting_t parm)
         return "";
     }
 
-    for (i = 0; parm_str[i].str[0] != '\0'; i++)
+    for (i = 0; rig_parm_str[i].str[0] != '\0'; i++)
     {
-        if (parm == parm_str[i].parm)
+        if (parm == rig_parm_str[i].parm)
         {
-            return parm_str[i].str;
+            return rig_parm_str[i].str;
+        }
+    }
+
+    return "";
+}
+
+
+/**
+ * \brief Convert enum ROT_PARM_... to alpha string
+ * \param parm ROT_PARM_...
+ * \return alpha string
+ *
+ * \sa rot_parm_e()
+ */
+const char *HAMLIB_API rot_strparm(setting_t parm)
+{
+    int i;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    if (parm == ROT_PARM_NONE)
+    {
+        return "";
+    }
+
+    for (i = 0; rot_parm_str[i].str[0] != '\0'; i++)
+    {
+        if (parm == rot_parm_str[i].parm)
+        {
+            return rot_parm_str[i].str;
         }
     }
 
@@ -1260,7 +1565,7 @@ double HAMLIB_API elapsed_ms(struct timespec *start, int option)
     struct timespec stop;
     double elapsed_msec;
 
-    if (option == ELAPSED_SET)
+    if (option == HAMLIB_ELAPSED_SET)
     {
         start->tv_sec = start->tv_nsec = 0;
     }
@@ -1271,7 +1576,7 @@ double HAMLIB_API elapsed_ms(struct timespec *start, int option)
 
     switch (option)
     {
-    case ELAPSED_GET:
+    case HAMLIB_ELAPSED_GET:
         if (start->tv_nsec == 0)   // if we haven't done SET yet
         {
             clock_gettime(CLOCK_REALTIME, start);
@@ -1281,42 +1586,625 @@ double HAMLIB_API elapsed_ms(struct timespec *start, int option)
         clock_gettime(CLOCK_REALTIME, &stop);
         break;
 
-    case ELAPSED_SET:
+    case HAMLIB_ELAPSED_SET:
         clock_gettime(CLOCK_REALTIME, start);
         rig_debug(RIG_DEBUG_TRACE, "%s: after gettime, start = %ld,%ld\n", __func__,
                   (long)start->tv_sec, (long)start->tv_nsec);
         return 999 * 1000; // so we can tell the difference in debug where we came from
         break;
 
-    case ELAPSED_INVALIDATE:
+    case HAMLIB_ELAPSED_INVALIDATE:
         clock_gettime(CLOCK_REALTIME, start);
-        start->tv_sec -= 3600;
+        stop = *start;
+        start->tv_sec -= 10; // ten seconds should be more than enough
         break;
     }
 
     elapsed_msec = ((stop.tv_sec - start->tv_sec) + (stop.tv_nsec / 1e9 -
                     start->tv_nsec / 1e9)) * 1e3;
 
-    rig_debug(RIG_DEBUG_TRACE, "%s: elapsed_secs=%g\n", __func__, elapsed_msec);
+    rig_debug(RIG_DEBUG_TRACE, "%s: elapsed_msecs=%.0f\n", __func__, elapsed_msec);
 
-    if (elapsed_msec < 0 || option == ELAPSED_INVALIDATE) { return 1000000; }
+    if (elapsed_msec < 0 || option == HAMLIB_ELAPSED_INVALIDATE) { return 1000000; }
 
     return elapsed_msec;
 }
 
-int HAMLIB_API rig_get_cache_timeout_ms(RIG *rig, cache_t selection)
+int HAMLIB_API rig_get_cache_timeout_ms(RIG *rig, hamlib_cache_t selection)
 {
     rig_debug(RIG_DEBUG_TRACE, "%s: called selection=%d\n", __func__, selection);
     return rig->state.cache.timeout_ms;
 }
 
-int HAMLIB_API rig_set_cache_timeout_ms(RIG *rig, cache_t selection, int ms)
+int HAMLIB_API rig_set_cache_timeout_ms(RIG *rig, hamlib_cache_t selection,
+                                        int ms)
 {
     rig_debug(RIG_DEBUG_TRACE, "%s: called selection=%d, ms=%d\n", __func__,
               selection, ms);
     rig->state.cache.timeout_ms = ms;
     return RIG_OK;
 }
+
+
+vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo)
+{
+    rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s\n", __func__, rig_strvfo(vfo));
+
+    if (vfo == RIG_VFO_CURR)
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s: Leaving currVFO alone\n", __func__);
+        return vfo;  // don't modify vfo for RIG_VFO_CURR
+    }
+
+    if (vfo == RIG_VFO_RX)
+    {
+        vfo = RIG_VFO_A;
+
+        if (VFO_HAS_MAIN_SUB_ONLY) { vfo = RIG_VFO_MAIN; }
+
+        if (VFO_HAS_MAIN_SUB_A_B_ONLY) { vfo = RIG_VFO_MAIN; }
+    }
+
+    if (vfo == RIG_VFO_TX)
+    {
+        int retval;
+        split_t split = 0;
+        // get split if we can -- it will default to off otherwise
+        // maybe split/satmode/vfo/freq/mode can be cached for rigs
+        // that don't have read capability or get_vfo like Icom?
+        // Icom's lack of get_vfo is problematic in this respect
+        // If we cache vfo or others than twiddling the rig may cause problems
+        retval = rig_get_split(rig, vfo, &split);
+
+        if (retval != RIG_OK)
+        {
+            split = rig->state.cache.split;
+        }
+
+        int satmode = rig->state.cache.satmode;
+        vfo = RIG_VFO_A;
+
+        if (split) { vfo = RIG_VFO_B; }
+
+        if (VFO_HAS_MAIN_SUB_ONLY && !split && !satmode) { vfo = RIG_VFO_MAIN; }
+
+        if (VFO_HAS_MAIN_SUB_ONLY && (split || satmode)) { vfo = RIG_VFO_SUB; }
+
+        if (VFO_HAS_MAIN_SUB_A_B_ONLY && split) { vfo = RIG_VFO_B; }
+
+        if (VFO_HAS_MAIN_SUB_A_B_ONLY && satmode) { vfo = RIG_VFO_SUB; }
+
+        rig_debug(RIG_DEBUG_TRACE,
+                  "%s: RIG_VFO_TX changed to %s, split=%d, satmode=%d\n", __func__,
+                  rig_strvfo(vfo), split, satmode);
+    }
+
+    rig_debug(RIG_DEBUG_TRACE, "%s: final vfo=%s\n", __func__, rig_strvfo(vfo));
+    return vfo;
+}
+
+int HAMLIB_API parse_hoststr(char *hoststr, char host[256], char port[6])
+{
+    unsigned int net1, net2, net3, net4, net5, net6, net7, net8;
+    char dummy[6], link[32], *p;
+    host[0] = 0;
+    port[0] = 0;
+    dummy[0] = 0;
+
+    // Exclude any names that aren't a host:port format
+    // Handle device names 1st
+    if (strstr(hoststr, "/dev")) { return -1; }
+
+    if (strstr(hoststr, "/")) { return -1; } // probably a path so not a hoststr
+
+    if (strncasecmp(hoststr, "com", 3) == 0) { return -1; }
+
+    // escaped COM port like \\.\COM3
+    if (strstr(hoststr, "\\\\.\\")) { return -1; }
+
+    // Now let's try and parse a host:port thing
+    // bracketed IPV6 with optional port
+    int n = sscanf(hoststr, "[%255[^]]]:%5s", host, port);
+
+    if (n >= 1)
+    {
+        return RIG_OK;
+    }
+
+    // non-bracketed full IPV6 with optional link addr
+    n = sscanf(hoststr, "%x:%x:%x:%x:%x:%x:%x:%x%%%31[^:]:%5s", &net1, &net2, &net3,
+               &net4, &net5, &net6, &net7, &net8, link, port);
+
+    if (n == 8 || n == 9)
+    {
+        strcpy(host, hoststr);
+        return RIG_OK;
+    }
+    else if (n == 10)
+    {
+        strcpy(host, hoststr);
+        p = strrchr(host, ':'); // remove port from host
+        *p = 0;
+        return RIG_OK;
+    }
+
+    // non-bracketed IPV6 with optional link addr and optional port
+    n = sscanf(hoststr, "%x::%x:%x:%x:%x%%%31[^:]:%5s", &net1, &net2, &net3,
+               &net4, &net5, link, port);
+
+    if (strchr(hoststr, '%') && (n == 5 || n == 6))
+    {
+        strcpy(host, hoststr);
+        return RIG_OK;
+    }
+    else if (n == 7)
+    {
+        strcpy(host, hoststr);
+        p = strrchr(host, ':'); // remove port from host
+        *p = 0;
+        return RIG_OK;
+    }
+
+    // non-bracketed IPV6 short form with optional port
+    n = sscanf(hoststr, "%x::%x:%x:%x:%x:%5[0-9]%1s", &net1, &net2, &net3, &net4,
+               &net5, port, dummy);
+
+    if (n == 5)
+    {
+        strcpy(host, hoststr);
+        return RIG_OK;
+    }
+    else if (n == 6)
+    {
+        strcpy(host, hoststr);
+        p = strrchr(host, ':');
+        *p = 0;
+        return RIG_OK;
+    }
+    else if (n == 7)
+    {
+        return -RIG_EINVAL;
+    }
+
+    // bracketed localhost
+    if (strstr(hoststr, "::1"))
+    {
+        n = sscanf(hoststr, "::1%5s", dummy);
+        strcpy(host, hoststr);
+
+        if (n == 1)
+        {
+            p = strrchr(host, ':');
+            *p = 0;
+            strcpy(port, p + 1);
+        }
+
+        return RIG_OK;
+    }
+
+    if (sscanf(hoststr, ":%5[0-9]%1s", port,
+               dummy) == 1) // just a port if you please
+    {
+        sprintf(hoststr, "%s:%s\n", "localhost", port);
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: hoststr=%s\n", __func__, hoststr);
+        return RIG_OK;
+    }
+
+    // if we're here then we must have a hostname
+    n = sscanf(hoststr, "%255[^:]:%5[0-9]%1s", host, port, dummy);
+
+    if (n >= 1 && strlen(dummy) == 0) { return RIG_OK; }
+
+    printf("Unhandled host=%s\n", hoststr);
+
+    return -1;
+}
+
+int HAMLIB_API rig_flush(hamlib_port_t *port)
+{
+    rig_debug(RIG_DEBUG_TRACE, "%s: called for %s device\n", __func__,
+              port->type.rig == RIG_PORT_SERIAL ? "serial" : "network");
+
+    if (port->type.rig == RIG_PORT_NETWORK
+            || port->type.rig == RIG_PORT_UDP_NETWORK)
+    {
+        network_flush(port);
+        return RIG_OK;
+    }
+
+    if (port->type.rig != RIG_PORT_SERIAL)
+    {
+        rig_debug(RIG_DEBUG_WARN,
+                  "%s: Expected serial port type!!\nWhat is this rig?\n", __func__);
+    }
+
+    return serial_flush(port); // we must be on serial port
+}
+
+
+static struct
+{
+    rot_status_t status;
+    const char *str;
+} rot_status_str[] =
+{
+    { ROT_STATUS_BUSY, "BUSY" },
+    { ROT_STATUS_MOVING, "MOVING" },
+    { ROT_STATUS_MOVING_AZ, "MOVING_AZ" },
+    { ROT_STATUS_MOVING_LEFT, "MOVING_LEFT" },
+    { ROT_STATUS_MOVING_RIGHT, "MOVING_RIGHT" },
+    { ROT_STATUS_MOVING_EL, "MOVING_EL" },
+    { ROT_STATUS_MOVING_UP, "MOVING_UP" },
+    { ROT_STATUS_MOVING_DOWN, "MOVING_DOWN" },
+    { ROT_STATUS_LIMIT_UP, "LIMIT_UP" },
+    { ROT_STATUS_LIMIT_DOWN, "LIMIT_DOWN" },
+    { ROT_STATUS_LIMIT_LEFT, "LIMIT_LEFT" },
+    { ROT_STATUS_LIMIT_RIGHT, "LIMIT_RIGHT" },
+    { ROT_STATUS_OVERLAP_UP, "OVERLAP_UP" },
+    { ROT_STATUS_OVERLAP_DOWN, "OVERLAP_DOWN" },
+    { ROT_STATUS_OVERLAP_LEFT, "OVERLAP_LEFT" },
+    { ROT_STATUS_OVERLAP_RIGHT, "OVERLAP_RIGHT" },
+    { 0xffffff, "" },
+};
+
+
+/**
+ * \brief Convert enum ROT_STATUS_... to a string
+ * \param status ROT_STATUS_...
+ * \return the corresponding string value
+ */
+const char *HAMLIB_API rot_strstatus(rot_status_t status)
+{
+    int i;
+
+    for (i = 0 ; rot_status_str[i].str[0] != '\0'; i++)
+    {
+        if (status == rot_status_str[i].status)
+        {
+            return rot_status_str[i].str;
+        }
+    }
+
+    return "";
+}
+
+/**
+ * \brief Get pointer to rig function instead of using rig->caps
+ * \param RIG* and rig_function_e
+ * \return the corresponding function pointer
+ */
+void *rig_get_function_ptr(rig_model_t rig_model,
+                           enum rig_function_e rig_function)
+{
+    const struct rig_caps *caps = rig_get_caps(rig_model);
+
+    switch (rig_function)
+    {
+    case RIG_FUNCTION_INIT:
+        return caps->rig_init;
+
+    case RIG_FUNCTION_CLEANUP:
+        return caps->rig_cleanup;
+
+    case RIG_FUNCTION_OPEN:
+        return caps->rig_open;
+
+    case RIG_FUNCTION_CLOSE:
+        return caps->rig_close;
+
+    case RIG_FUNCTION_SET_FREQ:
+        return caps->set_freq;
+
+    case RIG_FUNCTION_GET_FREQ:
+        return caps->get_freq;
+
+    case RIG_FUNCTION_SET_MODE:
+        return caps->set_mode;
+
+    case RIG_FUNCTION_GET_MODE:
+        return caps->get_mode;
+
+    case RIG_FUNCTION_SET_VFO:
+        return caps->set_vfo;
+
+    case RIG_FUNCTION_GET_VFO:
+        return caps->get_vfo;
+
+    case RIG_FUNCTION_SET_PTT:
+        return caps->set_ptt;
+
+    case RIG_FUNCTION_GET_PTT:
+        return caps->get_ptt;
+
+    case RIG_FUNCTION_GET_DCD:
+        return caps->get_dcd;
+
+    case RIG_FUNCTION_SET_RPTR_SHIFT:
+        return caps->set_rptr_shift;
+
+    case RIG_FUNCTION_GET_RPTR_SHIFT:
+        return caps->get_rptr_shift;
+
+    case RIG_FUNCTION_SET_RPTR_OFFS:
+        return caps->set_rptr_offs;
+
+    case RIG_FUNCTION_GET_RPTR_OFFS:
+        return caps->get_rptr_offs;
+
+    case RIG_FUNCTION_SET_SPLIT_FREQ:
+        return caps->set_split_freq;
+
+    case RIG_FUNCTION_GET_SPLIT_FREQ:
+        return caps->get_split_freq;
+
+    case RIG_FUNCTION_SET_SPLIT_MODE:
+        return caps->set_split_mode;
+
+    case RIG_FUNCTION_SET_SPLIT_FREQ_MODE:
+        return caps->set_split_freq_mode;
+
+    case RIG_FUNCTION_GET_SPLIT_FREQ_MODE:
+        return caps->get_split_freq_mode;
+
+    case RIG_FUNCTION_SET_SPLIT_VFO:
+        return caps->set_split_vfo;
+
+    case RIG_FUNCTION_GET_SPLIT_VFO:
+        return caps->get_split_vfo;
+
+    case RIG_FUNCTION_SET_RIT:
+        return caps->set_rit;
+
+    case RIG_FUNCTION_GET_RIT:
+        return caps->get_rit;
+
+    case RIG_FUNCTION_SET_XIT:
+        return caps->set_xit;
+
+    case RIG_FUNCTION_GET_XIT:
+        return caps->get_xit;
+
+    case RIG_FUNCTION_SET_TS:
+        return caps->set_ts;
+
+    case RIG_FUNCTION_GET_TS:
+        return caps->get_ts;
+
+    case RIG_FUNCTION_SET_DCS_CODE:
+        return caps->set_dcs_code;
+
+    case RIG_FUNCTION_GET_DCS_CODE:
+        return caps->get_dcs_code;
+
+    case RIG_FUNCTION_SET_TONE:
+        return caps->set_tone;
+
+    case RIG_FUNCTION_GET_TONE:
+        return caps->get_tone;
+
+    case RIG_FUNCTION_SET_CTCSS_TONE:
+        return caps->set_ctcss_tone;
+
+    case RIG_FUNCTION_GET_CTCSS_TONE:
+        return caps->get_ctcss_tone;
+
+    case RIG_FUNCTION_SET_DCS_SQL:
+        return caps->set_dcs_sql;
+
+    case RIG_FUNCTION_GET_DCS_SQL:
+        return caps->get_dcs_sql;
+
+    case RIG_FUNCTION_SET_TONE_SQL:
+        return caps->set_tone_sql;
+
+    case RIG_FUNCTION_GET_TONE_SQL:
+        return caps->get_tone_sql;
+
+    case RIG_FUNCTION_SET_CTCSS_SQL:
+        return caps->set_ctcss_sql;
+
+    case RIG_FUNCTION_GET_CTCSS_SQL:
+        return caps->get_ctcss_sql;
+
+    case RIG_FUNCTION_POWER2MW:
+        return caps->power2mW;
+
+    case RIG_FUNCTION_MW2POWER:
+        return caps->mW2power;
+
+    case RIG_FUNCTION_SET_POWERSTAT:
+        return caps->set_powerstat;
+
+    case RIG_FUNCTION_GET_POWERSTAT:
+        return caps->get_powerstat;
+
+    case RIG_FUNCTION_RESET:
+        return caps->reset;
+
+    case RIG_FUNCTION_SET_ANT:
+        return caps->set_ant;
+
+    case RIG_FUNCTION_GET_ANT:
+        return caps->get_ant;
+
+    case RIG_FUNCTION_SET_LEVEL:
+        return caps->set_level;
+
+    case RIG_FUNCTION_GET_LEVEL:
+        return caps->get_level;
+
+    case RIG_FUNCTION_SET_FUNC:
+        return caps->set_func;
+
+    case RIG_FUNCTION_GET_FUNC:
+        return caps->get_func;
+
+    case RIG_FUNCTION_SET_PARM:
+        return caps->set_parm;
+
+    case RIG_FUNCTION_GET_PARM:
+        return caps->get_parm;
+
+    case RIG_FUNCTION_SET_EXT_LEVEL:
+        return caps->set_ext_level;
+
+    case RIG_FUNCTION_GET_EXT_LEVEL:
+        return caps->get_ext_level;
+
+    case RIG_FUNCTION_SET_EXT_FUNC:
+        return caps->set_ext_func;
+
+    case RIG_FUNCTION_GET_EXT_FUNC:
+        return caps->get_ext_func;
+
+    case RIG_FUNCTION_SET_EXT_PARM:
+        return caps->set_ext_parm;
+
+    case RIG_FUNCTION_GET_EXT_PARM:
+        return caps->get_ext_parm;
+
+    case RIG_FUNCTION_SET_CONF:
+        return caps->set_conf;
+
+    case RIG_FUNCTION_GET_CONF:
+        return caps->get_conf;
+
+    case RIG_FUNCTION_SEND_DTMF:
+        return caps->send_dtmf;
+
+    case RIG_FUNCTION_SEND_MORSE:
+        return caps->send_morse;
+
+    case RIG_FUNCTION_STOP_MORSE:
+        return caps->stop_morse;
+
+    case RIG_FUNCTION_WAIT_MORSE:
+        return caps->wait_morse;
+
+    case RIG_FUNCTION_SEND_VOICE_MEM:
+        return caps->send_voice_mem;
+
+    case RIG_FUNCTION_SET_BANK:
+        return caps->set_bank;
+
+    case RIG_FUNCTION_SET_MEM:
+        return caps->set_mem;
+
+    case RIG_FUNCTION_GET_MEM:
+        return caps->get_mem;
+
+    case RIG_FUNCTION_VFO_OP:
+        return caps->vfo_op;
+
+    case RIG_FUNCTION_SCAN:
+        return caps->scan;
+
+    case RIG_FUNCTION_SET_TRN:
+        return caps->set_trn;
+
+    case RIG_FUNCTION_GET_TRN:
+        return caps->get_trn;
+
+    case RIG_FUNCTION_DECODE_EVENT:
+        return caps->decode_event;
+
+    case RIG_FUNCTION_SET_CHANNEL:
+        return caps->set_channel;
+
+    case RIG_FUNCTION_GET_CHANNEL:
+        return caps->get_channel;
+
+    case RIG_FUNCTION_GET_INFO:
+        return caps->get_info;
+
+    case RIG_FUNCTION_SET_CHAN_ALL_CB:
+        return caps->set_chan_all_cb;
+
+    case RIG_FUNCTION_GET_CHAN_ALL_CB:
+        return caps->get_chan_all_cb;
+
+    case RIG_FUNCTION_SET_MEM_ALL_CB:
+        return caps->set_mem_all_cb;
+
+    case RIG_FUNCTION_GET_MEM_ALL_CB:
+        return caps->get_mem_all_cb;
+
+    case RIG_FUNCTION_SET_VFO_OPT:
+        return caps->set_vfo_opt;
+
+    default:
+        rig_debug(RIG_DEBUG_ERR, "Unknown function?? function=%d\n", rig_function);
+    }
+
+    return NULL;
+}
+
+// negative return indicates error
+/**
+ * \brief Get integer/long instead of using rig->caps
+ *  watch out for integer values that may be negative -- if needed must change hamlib
+ * \param RIG* and rig_caps_int_e
+ * \return the corresponding long value -- -RIG_EINVAL is the only error possible
+ */
+long long rig_get_caps_int(rig_model_t rig_model, enum rig_caps_int_e rig_caps)
+{
+    const struct rig_caps *caps = rig_get_caps(rig_model);
+
+    switch (rig_caps)
+    {
+    case RIG_CAPS_TARGETABLE_VFO:
+        return caps->targetable_vfo;
+
+    case RIG_CAPS_RIG_MODEL:
+        return caps->rig_model;
+
+    case RIG_CAPS_PTT_TYPE:
+        return caps->ptt_type;
+
+    case RIG_CAPS_PORT_TYPE:
+        return caps->port_type;
+
+    case RIG_CAPS_HAS_GET_LEVEL:
+        return caps->has_get_level;
+
+    default:
+        //rig_debug(RIG_DEBUG_ERR, "%s: Unknown rig_caps value=%lld\n", __func__, rig_caps);
+        RETURNFUNC(-RIG_EINVAL);
+    }
+}
+
+const char *rig_get_caps_cptr(rig_model_t rig_model,
+                              enum rig_caps_cptr_e rig_caps)
+{
+    const struct rig_caps *caps = rig_get_caps(rig_model);
+
+    switch (rig_caps)
+    {
+    case RIG_CAPS_VERSION_CPTR:
+        return caps->version;
+
+    case RIG_CAPS_MFG_NAME_CPTR:
+        return caps->mfg_name;
+
+    case RIG_CAPS_MODEL_NAME_CPTR:
+        return caps->model_name;
+
+    case RIG_CAPS_STATUS_CPTR:
+        return rig_strstatus(caps->status);
+
+    default:
+        rig_debug(RIG_DEBUG_ERR, "%s: Unknown requested rig_caps value=%d\n", __func__,
+                  rig_caps);
+        return "Unknown caps value";
+    }
+}
+
+void errmsg(int err, char *s, const char *func, const char *file, int line)
+{
+    rig_debug(RIG_DEBUG_ERR, "%s(%s:%d): %s: %s\b", __func__, file, line, s,
+              rigerror(err));
+}
+
 
 //! @endcond
 

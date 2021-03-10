@@ -89,7 +89,7 @@ int ic10_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
     rs = &rig->state;
 
 transaction:
-    serial_flush(&rs->rigport);
+    rig_flush(&rs->rigport);
 
     retval = write_block(&rs->rigport, cmd, cmd_len);
 
@@ -121,7 +121,7 @@ transaction:
 
         if (strncmp("ID", buffer, 2))
         {
-            rig_debug(RIG_DEBUG_ERR, "%s: expected ID reponse and got %s\n", __func__,
+            rig_debug(RIG_DEBUG_ERR, "%s: expected ID response and got %s\n", __func__,
                       buffer);
             return retval;
         }
@@ -147,7 +147,7 @@ transaction:
 }
 
 /*
- * Get the anwser of IF command, with retry handling
+ * Get the answer of IF command, with retry handling
  */
 static int get_ic10_if(RIG *rig, char *data)
 {
@@ -634,7 +634,7 @@ int ic10_set_mem(RIG *rig, vfo_t vfo, int ch)
 }
 
 
-int ic10_get_channel(RIG *rig, channel_t *chan, int read_only)
+int ic10_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
     char membuf[16], infobuf[32];
     int retval, info_len, len;
@@ -731,7 +731,7 @@ int ic10_get_channel(RIG *rig, channel_t *chan, int read_only)
 }
 
 
-int ic10_set_channel(RIG *rig, const channel_t *chan)
+int ic10_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     char membuf[64];
     int retval, len, md;

@@ -56,7 +56,7 @@
  *
  *  The dummy backend, as the name suggests, is a backend which performs no
  *  hardware operations and always behaves as one would expect. It can be
- *  thought of as a hardware simulator and is very usefull for testing client
+ *  thought of as a hardware simulator and is very useful for testing client
  *  applications.
  *
  *  It has also been expanded to provide support to "virtual" type of rigs
@@ -69,6 +69,7 @@
 #define RIG_MODEL_ARMSTRONG RIG_MAKE_MODEL(RIG_DUMMY, 3)
 #define RIG_MODEL_FLRIG RIG_MAKE_MODEL(RIG_DUMMY, 4)
 #define RIG_MODEL_TRXMANAGER_RIG RIG_MAKE_MODEL(RIG_DUMMY, 5)
+#define RIG_MODEL_DUMMY_NOVFO RIG_MAKE_MODEL(RIG_DUMMY, 6)
 
 
 /*
@@ -109,13 +110,17 @@
 #define RIG_MODEL_FT980 RIG_MAKE_MODEL(RIG_YAESU, 31)
 #define RIG_MODEL_FTDX5000 RIG_MAKE_MODEL(RIG_YAESU, 32)
 #define RIG_MODEL_VX1700 RIG_MAKE_MODEL(RIG_YAESU, 33)
-#define RIG_MODEL_FT1200 RIG_MAKE_MODEL(RIG_YAESU, 34)
+#define RIG_MODEL_FTDX1200 RIG_MAKE_MODEL(RIG_YAESU, 34)
 #define RIG_MODEL_FT991 RIG_MAKE_MODEL(RIG_YAESU, 35)
 #define RIG_MODEL_FT891 RIG_MAKE_MODEL(RIG_YAESU, 36)
 #define RIG_MODEL_FTDX3000 RIG_MAKE_MODEL(RIG_YAESU, 37)
 #define RIG_MODEL_FT847UNI RIG_MAKE_MODEL(RIG_YAESU, 38)
 #define RIG_MODEL_FT600 RIG_MAKE_MODEL(RIG_YAESU, 39)
 #define RIG_MODEL_FTDX101D RIG_MAKE_MODEL(RIG_YAESU, 40)
+#define RIG_MODEL_FT818 RIG_MAKE_MODEL(RIG_YAESU, 41)
+#define RIG_MODEL_FTDX10 RIG_MAKE_MODEL(RIG_YAESU, 42)
+#define RIG_MODEL_FT897D RIG_MAKE_MODEL(RIG_YAESU, 43)
+#define RIG_MODEL_FTDX101MP RIG_MAKE_MODEL(RIG_YAESU, 44)
 
 
 /*
@@ -169,6 +174,8 @@
 #define RIG_MODEL_KX2 RIG_MAKE_MODEL(RIG_KENWOOD, 44)
 #define RIG_MODEL_KX3 RIG_MAKE_MODEL(RIG_KENWOOD, 45)
 #define RIG_MODEL_PT8000A RIG_MAKE_MODEL(RIG_KENWOOD, 46)
+#define RIG_MODEL_K4 RIG_MAKE_MODEL(RIG_KENWOOD, 47)
+#define RIG_MODEL_POWERSDR RIG_MAKE_MODEL(RIG_KENWOOD, 48)
 
 
 /*
@@ -252,7 +259,8 @@
 #define RIG_MODEL_ID4100 RIG_MAKE_MODEL(RIG_ICOM, 82)
 #define RIG_MODEL_ID31 RIG_MAKE_MODEL(RIG_ICOM, 83)
 #define RIG_MODEL_ID51 RIG_MAKE_MODEL(RIG_ICOM, 84)
-/* next one is 85 */
+#define RIG_MODEL_IC705 RIG_MAKE_MODEL(RIG_ICOM, 85)
+/* next one is 86 */
 
 
 /*
@@ -323,7 +331,7 @@
 
 /*
  * Radio Shack
- * Actualy, they might be either Icom or Uniden. TBC --SF
+ * Actually, they might be either Icom or Uniden. TBC --SF
  */
 #define RIG_RADIOSHACK 7
 #define RIG_BACKEND_RADIOSHACK "radioshack"
@@ -464,6 +472,7 @@
 #define RIG_ALINCO 17
 #define RIG_BACKEND_ALINCO "alinco"
 #define RIG_MODEL_DX77 RIG_MAKE_MODEL(RIG_ALINCO, 1)
+#define RIG_MODEL_DXSR8 RIG_MAKE_MODEL(RIG_ALINCO, 2)
 
 
 /*
@@ -612,6 +621,7 @@
 #define RIG_BARRETT 32
 #define RIG_BACKEND_BARRETT "barrett"
 #define RIG_MODEL_BARRETT_2050 RIG_MAKE_MODEL(RIG_BARRETT, 1)
+#define RIG_MODEL_BARRETT_950 RIG_MAKE_MODEL(RIG_BARRETT, 2)
 
 /*
  * Elad

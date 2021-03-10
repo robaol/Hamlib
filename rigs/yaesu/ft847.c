@@ -214,7 +214,7 @@ const struct rig_caps ft847_caps =
     RIG_MODEL(RIG_MODEL_FT847),
     .model_name = "FT-847",
     .mfg_name =  "Yaesu",
-    .version =  "20200509.0",
+    .version =  "20210221.0",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -371,7 +371,7 @@ const struct rig_caps ft847uni_caps =
     RIG_MODEL(RIG_MODEL_FT847UNI),
     .model_name = "FT-847UNI",
     .mfg_name =  "Yaesu",
-    .version =  "20200509.0",
+    .version =  "20210221.0",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -652,7 +652,7 @@ static int ft847_send_priv_cmd(RIG *rig, int cmd_index)
 
 /*
  * opcode_vfo() copy into cmd the 5 byte command designated by cmd_index,
- * and patch the opcode with VFO targetting (MAIN 0x0-, SAT RX 0x1-, SAT TX 0x2-)
+ * and patch the opcode with VFO targeting (MAIN 0x0-, SAT RX 0x1-, SAT TX 0x2-)
  */
 static int opcode_vfo(RIG *rig, unsigned char *cmd, int cmd_index, vfo_t vfo)
 {
@@ -1056,6 +1056,10 @@ int ft847_get_split_vfo(RIG *rig, vfo_t vfo, split_t *split, vfo_t *tx_vfo)
 
 int ft847_set_split_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
+    int retval = rig_set_split_vfo(rig, RIG_VFO_A, RIG_SPLIT_ON, RIG_VFO_B);
+
+    if (retval != RIG_OK) { RETURNFUNC(retval); }
+
     return ft847_set_freq(rig, RIG_VFO_TX, freq);
 }
 
@@ -1143,7 +1147,7 @@ static int ft847_get_status(RIG *rig, int status_ci)
         return -RIG_EINTERNAL;
     }
 
-    serial_flush(&rig->state.rigport);
+    rig_flush(&rig->state.rigport);
 
     n = write_block(&rig->state.rigport, (char *) ncmd[status_ci].nseq,
                     YAESU_CMD_LENGTH);

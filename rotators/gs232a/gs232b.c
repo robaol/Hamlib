@@ -27,25 +27,21 @@
 // cppcheck-suppress *
 #include <stdio.h>
 // cppcheck-suppress *
-#include <stdlib.h>
-// cppcheck-suppress *
 #include <string.h>   /* String function definitions */
-// cppcheck-suppress *
-#include <unistd.h>   /* UNIX standard function definitions */
 // cppcheck-suppress *
 #include <math.h>
 
 #include "hamlib/rotator.h"
 #include "serial.h"
 #include "misc.h"
-#include "register.h"
-
-#include "gs232a.h"
+#include "idx_builtin.h"
 
 #define EOM "\r"
-#define REPLY_EOM "\r\n"
+#define REPLY_EOM "\n"
 
 #define BUFSZ 64
+
+#define GS232B_LEVELS ROT_LEVEL_SPEED
 
 /**
  * gs232b_transaction
@@ -57,8 +53,8 @@
  *            a large enough buffer for all possible replies for a command.
  *
  * returns:
- *   RIG_OK  -  if no error occured.
- *   RIG_EIO  -  if an I/O error occured while sending/receiving data.
+ *   RIG_OK  -  if no error occurred.
+ *   RIG_EIO  -  if an I/O error occurred while sending/receiving data.
  *   RIG_ETIMEOUT  -  if timeout expires without any characters received.
  *   RIG_REJECTED  -  if a negative acknowledge was received or command not
  *                    recognized by rig.
@@ -75,7 +71,7 @@ gs232b_transaction(ROT *rot, const char *cmdstr,
 
 transaction_write:
 
-    serial_flush(&rs->rotport);
+    rig_flush(&rs->rotport);
 
     if (cmdstr)
     {
@@ -110,6 +106,15 @@ transaction_write:
     retval = read_string(&rs->rotport, data, data_len, REPLY_EOM,
                          strlen(REPLY_EOM));
 
+    if (strncmp(data, "\r\n", 2) == 0 || strchr(data, '>'))
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: Invalid response for '%s': '%s' (length=%d)\n",
+                  __func__, cmdstr, data, (int) strlen(data));
+        dump_hex((unsigned char *)data, strlen(data));
+        retval = -RIG_EPROTO; // force retry
+    }
+
+
     if (retval < 0)
     {
         if (retry_read++ < rot->state.rotport.retry)
@@ -140,16 +145,21 @@ transaction_write:
 
 #endif
 
+#if 0
+https://github.com/Hamlib/Hamlib/issues/272
+
     // If asked for we will check for connection
     // we don't expect a reply...just a prompt return
     // Seems some GS232B's only echo the CR
-    if (no_reply && (strncmp(data, "?>", 2) != 0) && data[0] != 0x0d)
+    if ((strncmp(data, "?>", 2) != 0) && data[0] != 0x0d)
     {
         rig_debug(RIG_DEBUG_VERBOSE,
                   "%s: Expected '?>' but got '%s' from cmd '%s'\n",
                   __func__, data, cmdstr);
         return -RIG_EPROTO;
     }
+
+#endif
 
     if (data[0] == '?')
     {
@@ -169,7 +179,6 @@ transaction_quit:
 static int
 gs232b_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
 {
-    char buf[32];
     char cmdstr[64];
     int retval;
     unsigned u_az, u_el;
@@ -186,12 +195,17 @@ gs232b_rot_set_position(ROT *rot, azimuth_t az, elevation_t el)
     u_el = (unsigned) rint(el);
 
     sprintf(cmdstr, "W%03u %03u" EOM, u_az, u_el);
+#if 0 // do any GS232B models need a reply to the W command?
     retval = gs232b_transaction(rot, cmdstr, buf, sizeof(buf), 0);
+#else
+    retval = gs232b_transaction(rot, cmdstr, NULL, 0, 0);
 
     if (retval != RIG_OK)
     {
         return retval;
     }
+
+#endif
 
     return RIG_OK;
 }
@@ -200,7 +214,7 @@ static int
 gs232b_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 {
     char posbuf[32];
-    int retval, int_az, int_el;
+    int retval, int_az = 0, int_el = 0;
 
     rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
 
@@ -216,9 +230,12 @@ gs232b_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
     /* With the format string containing a space character as one of the
      * directives, any amount of space is matched, including none in the input.
      */
-    if (sscanf(posbuf, "AZ=%d EL=%d", &int_az, &int_el) != 2)
+    // There's a 12PR1A rotor  that only returns AZ so we may only get AZ=xxx
+    if (sscanf(posbuf, "AZ=%d EL=%d", &int_az, &int_el) == 0)
     {
-        rig_debug(RIG_DEBUG_ERR, "%s: wrong reply '%s'\n", __func__,
+        // only give error if we didn't parse anything
+        rig_debug(RIG_DEBUG_ERR, "%s: wrong reply '%s', expected AZ=xxx EL=xxx\n",
+                  __func__,
                   posbuf);
         return -RIG_EPROTO;
     }
@@ -235,13 +252,12 @@ gs232b_rot_get_position(ROT *rot, azimuth_t *az, elevation_t *el)
 static int
 gs232b_rot_stop(ROT *rot)
 {
-    char buf[32];
     int retval;
 
     rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
 
     /* All Stop */
-    retval = gs232b_transaction(rot, "S" EOM, buf, sizeof(buf), 0);
+    retval = gs232b_transaction(rot, "S" EOM, NULL, 0, 0);
 
     if (retval != RIG_OK)
     {
@@ -252,25 +268,97 @@ gs232b_rot_stop(ROT *rot)
 }
 
 
-static int
-gs232b_rot_move(ROT *rot, int direction, int speed)
+static int gs232b_rot_get_level(ROT *rot, setting_t level, value_t *val)
+{
+    struct rot_state *rs = &rot->state;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s\n", __func__, rot_strlevel(level));
+
+    switch (level)
+    {
+    case ROT_LEVEL_SPEED:
+        val->i = rs->current_speed;
+        break;
+
+    default:
+        return -RIG_ENAVAIL;
+    }
+
+    return RIG_OK;
+}
+
+
+static int gs232b_rot_set_level(ROT *rot, setting_t level, value_t val)
+{
+    struct rot_state *rs = &rot->state;
+    char cmdstr[24];
+    int retval;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s\n", __func__, rot_strlevel(level));
+
+    switch (level)
+    {
+    case ROT_LEVEL_SPEED:
+    {
+        int speed = val.i;
+
+        if (speed < 1)
+        {
+            speed = 1;
+        }
+        else if (speed > 4)
+        {
+            speed = 4;
+        }
+
+        /* between 1 (slowest) and 4 (fastest) */
+        sprintf(cmdstr, "X%u" EOM, speed);
+        retval = gs232b_transaction(rot, cmdstr, NULL, 0, 1);
+
+        if (retval != RIG_OK)
+        {
+            return retval;
+        }
+
+        rs->current_speed = speed;
+        break;
+    }
+
+    default:
+        return -RIG_ENAVAIL;
+    }
+
+    return RIG_OK;
+}
+
+
+static int gs232b_rot_move(ROT *rot, int direction, int speed)
 {
     char cmdstr[24];
     int retval;
-    unsigned x_speed;
 
     rig_debug(RIG_DEBUG_TRACE, "%s called %d %d\n", __func__,
               direction, speed);
 
-    x_speed = (3 * speed) / 100 + 1;
-
-    /* between 1 (slowest) and 4 (fastest) */
-    sprintf(cmdstr, "X%u" EOM, x_speed);
-    retval = gs232b_transaction(rot, cmdstr, NULL, 0, 1);
-
-    if (retval != RIG_OK)
+    if (speed != ROT_SPEED_NOCHANGE)
     {
-        return retval;
+        value_t gs232b_speed;
+
+        if (speed < 1 || speed > 100)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: Invalid speed value (1-100)! (%d)\n", __func__,
+                      speed);
+            return -RIG_EINVAL;
+        }
+
+        gs232b_speed.i = (3 * speed) / 100 + 1;
+
+        retval = gs232b_rot_set_level(rot, ROT_LEVEL_SPEED, gs232b_speed);
+
+        if (retval != RIG_OK)
+        {
+            return retval;
+        }
     }
 
     switch (direction)
@@ -307,6 +395,20 @@ gs232b_rot_move(ROT *rot, int direction, int speed)
     return RIG_OK;
 }
 
+
+static int gs232b_rot_init(ROT *rot)
+{
+    struct rot_state *rs = &rot->state;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
+    // Set default speed to half of maximum
+    rs->current_speed = 3;
+
+    return RIG_OK;
+}
+
+
 /* ************************************************************************* */
 /*
  * Generic GS232B rotator capabilities.
@@ -317,10 +419,10 @@ const struct rot_caps gs232b_rot_caps =
     ROT_MODEL(ROT_MODEL_GS232B),
     .model_name = "GS-232B",
     .mfg_name = "Yaesu",
-    .version = "20200517",
+    .version = "20201203.0",
     .copyright = "LGPL",
     .status = RIG_STATUS_STABLE,
-    .rot_type = ROT_TYPE_OTHER,
+    .rot_type = ROT_TYPE_AZEL,
     .port_type = RIG_PORT_SERIAL,
     .serial_rate_min = 1200,
     .serial_rate_max = 9600,
@@ -329,7 +431,7 @@ const struct rot_caps gs232b_rot_caps =
     .serial_parity = RIG_PARITY_NONE,
     .serial_handshake = RIG_HANDSHAKE_NONE,
     .write_delay = 0,
-    .post_write_delay = 0,
+    .post_write_delay = 50,
     .timeout = 400,
     .retry = 3,
 
@@ -338,10 +440,110 @@ const struct rot_caps gs232b_rot_caps =
     .min_el = 0.0,
     .max_el = 180.0,    /* requires G-5400B, G-5600B, G-5500, or G-500/G-550 */
 
+    .has_get_level =  GS232B_LEVELS,
+    .has_set_level =  ROT_LEVEL_SET(GS232B_LEVELS),
+
+    .level_gran =      { [ROT_LVL_SPEED] = { .min = { .i = 1 }, .max = { .i = 4 }, .step = { .i = 1 } } },
+
+    .rot_init = gs232b_rot_init,
     .get_position = gs232b_rot_get_position,
     .set_position = gs232b_rot_set_position,
     .stop = gs232b_rot_stop,
     .move = gs232b_rot_move,
+    .get_level = gs232b_rot_get_level,
+    .set_level = gs232b_rot_set_level,
+};
+
+
+/* ************************************************************************* */
+/*
+ * Generic GS232B azimuth rotator capabilities.
+ */
+
+const struct rot_caps gs232b_az_rot_caps =
+{
+    ROT_MODEL(ROT_MODEL_GS232B_AZ),
+    .model_name = "GS-232B azimuth",
+    .mfg_name = "Yaesu",
+    .version = "20201203.0",
+    .copyright = "LGPL",
+    .status = RIG_STATUS_STABLE,
+    .rot_type = ROT_TYPE_AZIMUTH,
+    .port_type = RIG_PORT_SERIAL,
+    .serial_rate_min = 1200,
+    .serial_rate_max = 9600,
+    .serial_data_bits = 8,
+    .serial_stop_bits = 1,
+    .serial_parity = RIG_PARITY_NONE,
+    .serial_handshake = RIG_HANDSHAKE_NONE,
+    .write_delay = 0,
+    .post_write_delay = 50,
+    .timeout = 400,
+    .retry = 3,
+
+    .min_az = -180.0,
+    .max_az = 450.0,    /* vary according to rotator type */
+    .min_el = 0.0,
+    .max_el = 0.0,
+
+    .has_get_level =  GS232B_LEVELS,
+    .has_set_level =  ROT_LEVEL_SET(GS232B_LEVELS),
+
+    .level_gran =      { [ROT_LVL_SPEED] = { .min = { .i = 1 }, .max = { .i = 4 }, .step = { .i = 1 } } },
+
+    .rot_init = gs232b_rot_init,
+    .get_position = gs232b_rot_get_position,
+    .set_position = gs232b_rot_set_position,
+    .stop = gs232b_rot_stop,
+    .move = gs232b_rot_move,
+    .get_level = gs232b_rot_get_level,
+    .set_level = gs232b_rot_set_level,
+};
+
+
+/* ************************************************************************* */
+/*
+ * Generic GS232B elevation rotator capabilities.
+ */
+
+const struct rot_caps gs232b_el_rot_caps =
+{
+    ROT_MODEL(ROT_MODEL_GS232B_EL),
+    .model_name = "GS-232B elevation",
+    .mfg_name = "Yaesu",
+    .version = "20201203.0",
+    .copyright = "LGPL",
+    .status = RIG_STATUS_STABLE,
+    .rot_type = ROT_TYPE_ELEVATION,
+    .port_type = RIG_PORT_SERIAL,
+    .serial_rate_min = 1200,
+    .serial_rate_max = 9600,
+    .serial_data_bits = 8,
+    .serial_stop_bits = 1,
+    .serial_parity = RIG_PARITY_NONE,
+    .serial_handshake = RIG_HANDSHAKE_NONE,
+    .write_delay = 0,
+    .post_write_delay = 50,
+    .timeout = 400,
+    .retry = 3,
+
+    .min_az = 0.0,
+    .max_az = 0.0,
+    .min_el = 0.0,
+    .max_el = 180.0,    /* requires G-5400B, G-5600B, G-5500, or G-500/G-550 */
+
+    .has_get_level =  GS232B_LEVELS,
+    .has_set_level =  ROT_LEVEL_SET(GS232B_LEVELS),
+
+    .level_gran =      { [ROT_LVL_SPEED] = { .min = { .i = 1 }, .max = { .i = 4 }, .step = { .i = 1 } } },
+
+    .rot_init = gs232b_rot_init,
+    .get_position = gs232b_rot_get_position,
+    .set_position = gs232b_rot_set_position,
+    .stop = gs232b_rot_stop,
+    .move = gs232b_rot_move,
+    .get_level = gs232b_rot_get_level,
+    .set_level = gs232b_rot_set_level,
 };
 
 /* end of file */

@@ -45,7 +45,8 @@ static int ar3030_set_mem(RIG *rig, vfo_t vfo, int ch);
 static int ar3030_get_mem(RIG *rig, vfo_t vfo, int *ch);
 static int ar3030_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val);
 static int ar3030_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val);
-static int ar3030_get_channel(RIG *rig, channel_t *chan, int read_only);
+static int ar3030_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
+                              int read_only);
 static int ar3030_init(RIG *rig);
 static int ar3030_cleanup(RIG *rig);
 static int ar3030_close(RIG *rig);
@@ -231,7 +232,7 @@ static int ar3030_transaction(RIG *rig, const char *cmd, int cmd_len,
         data = tmpdata;
     }
 
-    serial_flush(&rs->rigport);
+    rig_flush(&rs->rigport);
 
     do
     {
@@ -266,7 +267,7 @@ static int ar3030_transaction(RIG *rig, const char *cmd, int cmd_len,
         *data_len = 0;
 
         /* only set data_len non-zero if not a command response */
-        if (retval > 0 && data[0] != 0x00 && data[0] != 0x0d)
+        if (data[0] != 0x00 && data[0] != 0x0d)
         {
             *data_len = retval;
         }
@@ -315,7 +316,7 @@ int ar3030_close(RIG *rig)
     rig_debug(RIG_DEBUG_TRACE, "%s:\n", __func__);
 
     rs = &rig->state;
-    serial_flush(&rs->rigport);
+    rig_flush(&rs->rigport);
 
     retval = ar3030_transaction(rig, "Q" CR, strlen("Q" CR), NULL, NULL);
     rig_debug(RIG_DEBUG_TRACE, "%s: retval=%d\n", __func__, retval);
@@ -721,7 +722,7 @@ int ar3030_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     return RIG_OK;
 }
 
-int ar3030_get_channel(RIG *rig, channel_t *chan, int read_only)
+int ar3030_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
     struct ar3030_priv_data *priv = (struct ar3030_priv_data *)rig->state.priv;
     char cmdbuf[BUFSZ], infobuf[BUFSZ];
@@ -799,6 +800,7 @@ int ar3030_get_channel(RIG *rig, channel_t *chan, int read_only)
                   rig_passband_normal(rig, chan->mode);
 
 
+    // cppcheck-suppress *
     chan->levels[LVL_ATT].i = infobuf[6] == '0' ? 0 :
                               rig->caps->attenuator[infobuf[4] - '1'];
 

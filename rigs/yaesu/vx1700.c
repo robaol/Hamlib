@@ -104,7 +104,7 @@ const struct rig_caps vx1700_caps =
     RIG_MODEL(RIG_MODEL_VX1700),
     .model_name =  "VX-1700",
     .mfg_name =  "Vertex Standard",
-    .version =  "20200320.0",
+    .version =  "20210221.0",
     .copyright =  "LGPL",
     .status =   RIG_STATUS_ALPHA,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -129,6 +129,7 @@ const struct rig_caps vx1700_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran =  {
+        // cppcheck-suppress *
         [LVL_RFPOWER] = { .min = { .i = 0 }, .max = { .i = 2 } },
     },
     .parm_gran =  {},
@@ -240,7 +241,7 @@ static int vx1700_do_transaction(RIG *rig,
     rs = &rig->state;
     memset(retbuf, 0, retbuf_len);
 
-    serial_flush(&rs->rigport);
+    rig_flush(&rs->rigport);
     retval = write_block(&rs->rigport, (const char *)cmd, YAESU_CMD_LENGTH);
 
     if (retval != RIG_OK) { return retval; }
@@ -352,7 +353,7 @@ static int vx1700_do_freq_cmd(RIG *rig, unsigned char ci, freq_t freq)
     if ((ci != VX1700_NATIVE_FREQ_SET) && (ci != VX1700_NATIVE_TX_FREQ_SET))
     {
         rig_debug(RIG_DEBUG_TRACE,
-                  "%s: Attempt to use non freqency sequence\n", __func__);
+                  "%s: Attempt to use non frequency sequence\n", __func__);
         return -RIG_EINVAL;
     }
 
@@ -701,6 +702,10 @@ static int vx1700_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
 {
     (void) vfo;
     rig_debug(RIG_DEBUG_TRACE, "%s: freq=%f\n", __func__, tx_freq);
+    int err = rig_set_split_vfo(rig, RIG_VFO_A, RIG_SPLIT_ON, RIG_VFO_B);
+
+    if (err != RIG_OK) { RETURNFUNC(err); }
+
     return vx1700_do_freq_cmd(rig, VX1700_NATIVE_TX_FREQ_SET, tx_freq);
 }
 

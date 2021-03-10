@@ -808,29 +808,27 @@ int win32_serial_close(int fd)
         first_tl = NULL;
     }
 
-    if (index)
-    {
-        if (index->rol.hEvent) { CloseHandle(index->rol.hEvent); }
+    if (index->rol.hEvent) { CloseHandle(index->rol.hEvent); }
 
-        if (index->wol.hEvent) { CloseHandle(index->wol.hEvent); }
+    if (index->wol.hEvent) { CloseHandle(index->wol.hEvent); }
 
-        if (index->sol.hEvent) { CloseHandle(index->sol.hEvent); }
+    if (index->sol.hEvent) { CloseHandle(index->sol.hEvent); }
 
-        if (index->hComm) { CloseHandle(index->hComm); }
+    if (index->hComm) { CloseHandle(index->hComm); }
 
-        if (index->ttyset) { free(index->ttyset); }
+    if (index->ttyset) { free(index->ttyset); }
 
-        if (index->astruct) { free(index->astruct); }
+    if (index->astruct) { free(index->astruct); }
 
-        if (index->sstruct) { free(index->sstruct); }
+    if (index->sstruct) { free(index->sstruct); }
 
-        if (index->sis) { free(index->sis); }
+    if (index->sis) { free(index->sis); }
 
-        /* had problems with strdup
-        if ( index->filename ) free( index->filename );
-        */
-        free(index);
-    }
+    /* had problems with strdup
+    if ( index->filename ) free( index->filename );
+    */
+    free(index);
+
 
     LEAVE("serial_close");
     return 0;
@@ -1257,7 +1255,7 @@ static struct termios_list *add_port(const char *filename)
 
     strncpy(port->filename, filename, sizeof(port->filename) - 1);
 
-    /* didnt free well? strdup( filename ); */
+    /* didn't free well? strdup( filename ); */
     if (! port->filename)
     {
         goto fail;
@@ -1740,7 +1738,7 @@ int win32_serial_read(int fd, void *vb, int size)
                     }
                 }
 
-                sprintf(message, "end nBytes=%ld] ", nBytes);
+                sprintf(message, "end nBytes=%lu] ", nBytes);
                 report(message);
                 /*
                   hl_usleep(1000);
@@ -2497,8 +2495,11 @@ int tcgetattr(int fd, struct termios *s_termios)
     s_termios->c_cflag &= ~(PARENB | PARODD | CMSPAR);
     myDCB.fParity = 1;
 
+#if 0 // redundant
+
     if (myDCB.fParity)
     {
+#endif
         report("tcgetattr getting parity\n");
         s_termios->c_cflag |= PARENB;
 
@@ -2524,11 +2525,15 @@ int tcgetattr(int fd, struct termios *s_termios)
         {
             s_termios->c_cflag &= ~(PARODD | CMSPAR | PARENB);
         }
+
+#if 0 // see redundant above
     }
     else
     {
         s_termios->c_cflag &= ~PARENB;
     }
+
+#endif
 
     /* CSIZE */
     s_termios->c_cflag |= bytesize_to_termios(myDCB.ByteSize);
@@ -2557,7 +2562,7 @@ int tcgetattr(int fd, struct termios *s_termios)
     /* ECHONL: ICANON only: echo newline even with no ECHO */
     /* ECHOCTL: if ECHO, then control-A are printed as '^A' */
     /* ISIG: recognize INTR, QUIT & SUSP */
-    /* IEXTEN: implmentation defined */
+    /* IEXTEN: implementation defined */
     /* NOFLSH: dont clear i/o queues on INTR, QUIT or SUSP */
     /* TOSTOP: background process generate SIGTTOU */
     /* ALTWERASE: alt-w erase distance */
@@ -2752,11 +2757,11 @@ int tcsetattr(int fd, int when, struct termios *s_termios)
 
     if (dcb.EofChar != '\0')
     {
-        dcb.fBinary = 0;
+        dcb.fBinary = FALSE;
     }
     else
     {
-        dcb.fBinary = 1;
+        dcb.fBinary = TRUE;
     }
 
     if (EV_BREAK | EV_CTS | EV_DSR | EV_ERR | EV_RING | (EV_RLSD & EV_RXFLAG))
@@ -2888,7 +2893,7 @@ int tcsendbreak(int fd, int duration)
 tcdrain()
 
    accept:       file descriptor
-   perform:      wait for ouput to be written.
+   perform:      wait for output to be written.
    return:       0 on success, -1 otherwise
    exceptions:   None
    win32api:     FlushFileBuffers
@@ -3487,7 +3492,7 @@ int win32_serial_ioctl(int fd, int request, ...)
                 index->event_flag = old_flag;
                 *arg = 1;
                 index->tx_happened = 0;
-                report("ioctl: ouput empty\n");
+                report("ioctl: output empty\n");
             }
             else
             {
@@ -3536,38 +3541,10 @@ int win32_serial_ioctl(int fd, int request, ...)
             return -1;
         }
 
-        if (sistruct->frame != index->sis->frame)
-        {
-            sistruct->frame = index->sis->frame;
-            /*
-                            printf( "---------------frame = %i\n", sistruct->frame++ );
-            */
-        }
-
-        if (sistruct->overrun != index->sis->overrun)
-        {
-            /*
-                            printf( "---------------overrun\n" );
-            */
-            sistruct->overrun = index->sis->overrun;
-            /* ErrCode &= ~CE_OVERRUN; */
-        }
-
-        if (sistruct->parity != index->sis->parity)
-        {
-            /*
-                            printf( "---------------parity\n" );
-            */
-            sistruct->parity = index->sis->parity;
-        }
-
-        if (sistruct->brk != index->sis->brk)
-        {
-            /*
-                            printf( "---------------brk\n" );
-            */
-            sistruct->brk = index->sis->brk;
-        }
+        sistruct->frame = index->sis->frame;
+        sistruct->overrun = index->sis->overrun;
+        sistruct->parity = index->sis->parity;
+        sistruct->brk = index->sis->brk;
 
         va_end(ap);
         return 0;
@@ -3777,7 +3754,7 @@ int  win32_serial_select(int  n,  fd_set  *readfds,  fd_set  *writefds,
         termios_setflags(fd, eventflags);
     }
 
-    if (!index || !index->event_flag)
+    if (!index->event_flag)
     {
         /* still setting up the port? hold off for a Sec so
            things can fire up

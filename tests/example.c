@@ -13,6 +13,7 @@
 #include <hamlib/rig.h>
 #include <hamlib/riglist.h>
 #include "sprintflst.h"
+#include <hamlib/rotator.h>
 
 #if 0
 #define MODEL RIG_MODEL_DUMMY
@@ -42,7 +43,7 @@ int main()
     /* Instantiate a rig */
     my_rig = rig_init(MODEL); // your rig model.
 
-    strncpy(my_rig->state.rigport.pathname, PATH, FILPATHLEN - 1);
+    strncpy(my_rig->state.rigport.pathname, PATH, HAMLIB_FILPATHLEN - 1);
 
     my_rig->state.rigport.parm.serial.rate = BAUD; // your baud rate
 
@@ -67,6 +68,13 @@ int main()
      * status in case of error.  (That's an inelegant way to catch an unsupported
      * operation.)
      */
+
+    if (my_rig->caps->rig_model == RIG_MODEL_NETRIGCTL)
+    {
+        status = rig_set_vfo_opt(my_rig, 1);
+
+        if (status != RIG_OK) { printf("set_vfo_opt failed?? Err=%s\n", rigerror(status)); }
+    }
 
     /* Main VFO frequency */
     status = rig_get_freq(my_rig, RIG_VFO_CURR, &freq);
@@ -123,7 +131,7 @@ int main()
     if (range)
     {
         char vfolist[256];
-        sprintf_vfo(vfolist, my_rig->state.vfo_list);
+        rig_sprintf_vfo(vfolist, sizeof(vfo_list), my_rig->state.vfo_list);
         printf("Range start=%"PRIfreq", end=%"PRIfreq", low_power=%d, high_power=%d, vfos=%s\n",
                range->startf, range->endf, range->low_power, range->high_power, vfolist);
     }
@@ -135,7 +143,9 @@ int main()
     printf("Closing and reopening rig\n");
     rig_close(my_rig);
 
-    while (1)
+    int loops = 1;
+
+    while (loops--)
     {
         retcode = rig_open(my_rig);
 

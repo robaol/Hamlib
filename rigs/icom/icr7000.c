@@ -204,6 +204,7 @@ const struct rig_caps icr7100_caps =
     .has_get_parm =  ICR7100_PARMS,
     .has_set_parm =  RIG_PARM_SET(ICR7100_PARMS),
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  {},
@@ -309,7 +310,7 @@ static int r7000_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     long long f = (long long)freq;
 
     /*
-     * The R7000 cannot set freqencies higher than 1GHz,
+     * The R7000 cannot set frequencies higher than 1GHz,
      * this is done by flipping a switch on the front panel and
      * stripping the most significant digit.
      * This is the only change with the common icom_set_freq

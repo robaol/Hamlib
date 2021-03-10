@@ -158,9 +158,9 @@ const struct rig_caps ft1000d_caps =
     RIG_MODEL(RIG_MODEL_FT1000D),
     .model_name =         "FT-1000D",
     .mfg_name =           "Yaesu",
-    .version =            "20200323.0",
+    .version =            "20210121.0",
     .copyright =          "LGPL",
-    .status =             RIG_STATUS_BETA,
+    .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
     .ptt_type =           RIG_PTT_RIG,
     .dcd_type =           RIG_DCD_NONE,
@@ -1930,27 +1930,10 @@ int ft1000d_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         return RIG_OK;
     }
 
-    switch (width)
-    {
-    case 250:
-        bw = FT1000D_BW_F250;
-        break;
-
-    case 500:
-        bw = FT1000D_BW_F500;
-        break;
-
-    case 2000:
-        bw = FT1000D_BW_F2000;
-        break;
-
-    case 2400:
-        bw = FT1000D_BW_F2400;
-        break;
-
-    default:
-        return -RIG_EINVAL;
-    }
+    if (width <= 250) { bw = FT1000D_BW_F250; }
+    else if (width <= 500) { bw = FT1000D_BW_F500; }
+    else if (width <= 2000) { bw = FT1000D_BW_F2000; }
+    else { bw = FT1000D_BW_F2400; }
 
     rig_debug(RIG_DEBUG_TRACE, "%s: set bw = 0x%02x\n", __func__, bw);
 
@@ -2683,7 +2666,7 @@ int ft1000d_get_mem(RIG *rig, vfo_t vfo, int *ch)
  * -------------------------------------------------------------------------
  * Returns RIG_OK on success or an error code on failure
  */
-int ft1000d_set_channel(RIG *rig, const channel_t *chan)
+int ft1000d_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
 
@@ -2715,7 +2698,7 @@ int ft1000d_set_channel(RIG *rig, const channel_t *chan)
  *           Status for split operation, active rig functions and tuning steps
  *           are only relevant for currVFO
  */
-int ft1000d_get_channel(RIG *rig, channel_t *chan, int read_only)
+int ft1000d_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
     struct ft1000d_priv_data *priv;
     ft1000d_op_data_t *p;
@@ -3291,7 +3274,7 @@ int ft1000d_get_update_data(RIG *rig, unsigned char ci, unsigned short ch)
         n = read_block(&rig_s->rigport, p, rl);
 
     }
-    while (n < 0 && retry >= 0);
+    while (n < 0 && retry-- >= 0);
 
     if (n < 0)
     {
@@ -3588,6 +3571,10 @@ int ft1000d_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
     rig_debug(RIG_DEBUG_TRACE, "%s: passed freq = %"PRIfreq" Hz\n", __func__,
               tx_freq);
 
+    err = rig_set_split_vfo(rig, vfo, RIG_SPLIT_ON, RIG_VFO_B);
+
+    if (err != RIG_OK) { RETURNFUNC(err); }
+
 //  priv = (struct ft1000d_priv_data *)rig->state.priv;
 
     err = ft1000d_send_dial_freq(rig, FT1000D_NATIVE_SET_SUB_VFO_FREQ, tx_freq);
@@ -3786,27 +3773,10 @@ int ft1000d_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode,
         return RIG_OK;
     }
 
-    switch (tx_width)
-    {
-    case 250:
-        bw = FT1000D_SUB_VFOB_BW_F250;
-        break;
-
-    case 500:
-        bw = FT1000D_SUB_VFOB_BW_F500;
-        break;
-
-    case 2000:
-        bw = FT1000D_SUB_VFOB_BW_F2000;
-        break;
-
-    case 2400:
-        bw = FT1000D_SUB_VFOB_BW_F2400;
-        break;
-
-    default:
-        return -RIG_EINVAL;
-    }
+    if (tx_width <= 250) { bw = FT1000D_BW_F250; }
+    else if (tx_width <= 500) { bw = FT1000D_BW_F500; }
+    else if (tx_width <= 2000) { bw = FT1000D_BW_F2000; }
+    else { bw = FT1000D_BW_F2400; }
 
     rig_debug(RIG_DEBUG_TRACE, "%s: set bw = 0x%02x\n", __func__, bw);
 

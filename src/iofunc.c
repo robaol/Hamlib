@@ -146,6 +146,8 @@ int HAMLIB_API port_open(hamlib_port_t *p)
         p->fd = status;
         break;
 
+#ifdef HAVE_LIBUSB_H
+
     case RIG_PORT_USB:
         status = usb_port_open(p);
 
@@ -155,6 +157,7 @@ int HAMLIB_API port_open(hamlib_port_t *p)
         }
 
         break;
+#endif
 
     case RIG_PORT_NONE:
     case RIG_PORT_RPC:
@@ -200,9 +203,12 @@ int HAMLIB_API port_close(hamlib_port_t *p, rig_port_t port_type)
             ret = ser_close(p);
             break;
 
+#ifdef HAVE_LIBUSB_H
+
         case RIG_PORT_USB:
             ret = usb_port_close(p);
             break;
+#endif
 
         case RIG_PORT_NETWORK:
         case RIG_PORT_UDP_NETWORK:
@@ -566,7 +572,7 @@ int HAMLIB_API read_block(hamlib_port_t *p, char *rxbuffer, size_t count)
 
         if (retval == 0)
         {
-            /* Record timeout time and caculate elapsed time */
+            /* Record timeout time and calculate elapsed time */
             gettimeofday(&end_time, NULL);
             timersub(&end_time, &start_time, &elapsed_time);
 
@@ -637,8 +643,8 @@ int HAMLIB_API read_block(hamlib_port_t *p, char *rxbuffer, size_t count)
  * \param rxmax maximum string size + 1
  * \param stopset string of recognized end of string characters
  * \param stopset_len length of stopset
- * \return number of characters read if the operation has been sucessful,
- * otherwise a negative value if an error occured (in which case, cause is
+ * \return number of characters read if the operation has been successful,
+ * otherwise a negative value if an error occurred (in which case, cause is
  * set appropriately).
  *
  * Read a string from "fd" and put result into
@@ -665,7 +671,7 @@ int HAMLIB_API read_string(hamlib_port_t *p,
     struct timeval tv, tv_timeout, start_time, end_time, elapsed_time;
     int total_count = 0;
 
-    rig_debug(RIG_DEBUG_TRACE, "%s called\n", __func__);
+    rig_debug(RIG_DEBUG_TRACE, "%s called, rxmax=%d\n", __func__, (int)rxmax);
 
     if (!p || !rxbuffer)
     {
@@ -707,16 +713,16 @@ int HAMLIB_API read_string(hamlib_port_t *p,
         {
             if (0 == total_count)
             {
-                /* Record timeout time and caculate elapsed time */
+                /* Record timeout time and calculate elapsed time */
                 gettimeofday(&end_time, NULL);
                 timersub(&end_time, &start_time, &elapsed_time);
 
                 dump_hex((unsigned char *) rxbuffer, total_count);
                 rig_debug(RIG_DEBUG_WARN,
-                          "%s(): Timed out %d.%d seconds after %d chars\n",
+                          "%s(): Timed out %d.%03d seconds after %d chars\n",
                           __func__,
                           (int)elapsed_time.tv_sec,
-                          (int)elapsed_time.tv_usec,
+                          (int)elapsed_time.tv_usec / 1000,
                           total_count);
 
                 return -RIG_ETIMEOUT;
@@ -764,6 +770,9 @@ int HAMLIB_API read_string(hamlib_port_t *p,
 
             return -RIG_EIO;
         }
+
+        // check to see if our string startis with \...if so we need more chars
+        if (total_count == 0 && rxbuffer[total_count] == '\\') { rxmax = (rxmax - 1) * 5; }
 
         ++total_count;
 

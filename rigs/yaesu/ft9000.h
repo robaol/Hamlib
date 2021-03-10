@@ -68,17 +68,37 @@
                RIG_LEVEL_KEYSPD|RIG_LEVEL_AF|RIG_LEVEL_AGC|\
                RIG_LEVEL_METER|RIG_LEVEL_BKINDL|RIG_LEVEL_SQL|\
                RIG_LEVEL_VOXGAIN|RIG_LEVEL_VOXDELAY|RIG_LEVEL_COMP|\
-               RIG_LEVEL_ANTIVOX|RIG_LEVEL_NR|RIG_LEVEL_NOTCHF)
+               RIG_LEVEL_ANTIVOX|RIG_LEVEL_NR|RIG_LEVEL_NOTCHF|RIG_LEVEL_MONITOR_GAIN)
 
 /* TBC */
 #define FT9000_FUNCS (RIG_FUNC_TONE|RIG_FUNC_TSQL|RIG_FUNC_LOCK|\
-               RIG_FUNC_MON|RIG_FUNC_NB|RIG_FUNC_NR|RIG_FUNC_VOX|\
-               RIG_FUNC_FBKIN|RIG_FUNC_COMP|RIG_FUNC_ANF|RIG_FUNC_MN)
+               RIG_FUNC_NB|RIG_FUNC_NR|RIG_FUNC_VOX|\
+               RIG_FUNC_FBKIN|RIG_FUNC_COMP|RIG_FUNC_ANF|\
+               RIG_FUNC_RIT|RIG_FUNC_XIT)
 
 /* TBC */
 #define FT9000_VFO_OPS (RIG_OP_TUNE|RIG_OP_CPY|RIG_OP_XCHG|\
                RIG_OP_UP|RIG_OP_DOWN|RIG_OP_BAND_UP|RIG_OP_BAND_DOWN|\
                RIG_OP_TO_VFO|RIG_OP_FROM_VFO|RIG_OP_TOGGLE)
+
+// Borrowed from FLRig -- Thanks to Dave W1HKJ
+#define FT9000_RFPOWER_METER_CAL \
+    { \
+       11, \
+        { \
+            {35, 10.0f}, \
+            {53, 20.0f}, \
+            {80, 40.0f}, \
+            {97, 60.0f}, \
+            {119, 80.0f}, \
+            {137, 100.0f}, \
+            {154, 120.0f}, \
+            {167, 140.0f}, \
+            {177, 160.0f}, \
+            {188, 180.0f}, \
+            {197, 200.0f}, \
+        } \
+    }
 
 /* TBC */
 #define FT9000_STR_CAL { 16, \

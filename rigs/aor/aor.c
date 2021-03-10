@@ -80,7 +80,7 @@ static int aor_transaction(RIG *rig, const char *cmd, int cmd_len, char *data,
 
     rs = &rig->state;
 
-    serial_flush(&rs->rigport);
+    rig_flush(&rs->rigport);
 
     retval = write_block(&rs->rigport, cmd, cmd_len);
 
@@ -439,7 +439,7 @@ int format8k_mode(RIG *rig, char *buf, rmode_t mode, pbwidth_t width)
 int aor_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 {
     struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
-    char mdbuf[8];
+    char mdbuf[9];
     char mdbuf2[16] = "";
     int mdbuf2_len, retval;
 
@@ -467,6 +467,7 @@ int aor_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         if (retval != RIG_OK) { return retval; }
 
         strncpy(mdbuf2, mdbuf + 4, 3); /* Extract first 'BW' part */
+        mdbuf2[3] = '\0'; // in case strnpy produces and un-terminated string
         mdbuf2_len = strlen(mdbuf2);
 
         retval = aor_transaction(rig, mdbuf2, mdbuf2_len, NULL, NULL);
@@ -631,7 +632,7 @@ int aor_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 
         unsigned i;
 
-        for (i = 0; i < MAXDBLSTSIZ && !RIG_IS_DBLST_END(rs->attenuator[i]); i++)
+        for (i = 0; i < HAMLIB_MAXDBLSTSIZ && !RIG_IS_DBLST_END(rs->attenuator[i]); i++)
         {
             if (rs->attenuator[i] == val.i)
             {
@@ -641,7 +642,7 @@ int aor_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         }
 
         /* should be caught by the front end */
-        if ((val.i != 0) && (i >= MAXDBLSTSIZ || RIG_IS_DBLST_END(rs->attenuator[i])))
+        if ((val.i != 0) && (i >= HAMLIB_MAXDBLSTSIZ || RIG_IS_DBLST_END(rs->attenuator[i])))
         {
             return -RIG_EINVAL;
         }
@@ -761,7 +762,7 @@ int aor_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             break;
         }
 
-        if (att > MAXDBLSTSIZ || rs->attenuator[att - 1] == 0)
+        if (att > HAMLIB_MAXDBLSTSIZ || rs->attenuator[att - 1] == 0)
         {
             rig_debug(RIG_DEBUG_ERR, "Unsupported att %s %d\n",
                       __func__, att);
@@ -1028,7 +1029,7 @@ int aor_set_bank(RIG *rig, vfo_t vfo, int bank)
 }
 
 
-int aor_set_channel(RIG *rig, const channel_t *chan)
+int aor_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
     char aorcmd[BUFSZ];
@@ -1047,7 +1048,6 @@ int aor_set_channel(RIG *rig, const channel_t *chan)
 
     cmd_len += priv->format_mode(rig, aorcmd + cmd_len, chan->mode, chan->width);
 
-    // cppcheck-suppress *
     cmd_len += sprintf(aorcmd + cmd_len, " AT%d TM%12s%s",
                        chan->levels[LVL_ATT].i ? 1 : 0, chan->channel_desc, EOM);
 
@@ -1240,7 +1240,7 @@ static int parse_chan_line(RIG *rig, channel_t *chan, char *basep,
 }
 
 
-int aor_get_channel(RIG *rig, channel_t *chan, int read_only)
+int aor_get_channel(RIG *rig, vfo_t vfo, channel_t *chan, int read_only)
 {
     struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
     char aorcmd[BUFSZ];
@@ -1270,7 +1270,7 @@ int aor_get_channel(RIG *rig, channel_t *chan, int read_only)
          */
         int i;
 
-        for (i = 0; i < CHANLSTSIZ && !RIG_IS_CHAN_END(chan_list[i]); i++)
+        for (i = 0; i < HAMLIB_CHANLSTSIZ && !RIG_IS_CHAN_END(chan_list[i]); i++)
         {
             if (channel_num >= chan_list[i].startc &&
                     channel_num <= chan_list[i].endc)
@@ -1346,7 +1346,7 @@ int aor_get_channel(RIG *rig, channel_t *chan, int read_only)
 
 #define LINES_PER_MA    10
 
-int aor_get_chan_all_cb(RIG *rig, chan_cb_t chan_cb, rig_ptr_t arg)
+int aor_get_chan_all_cb(RIG *rig, vfo_t vfo, chan_cb_t chan_cb, rig_ptr_t arg)
 {
     struct aor_priv_caps *priv = (struct aor_priv_caps *)rig->caps->priv;
     int i, j, retval;

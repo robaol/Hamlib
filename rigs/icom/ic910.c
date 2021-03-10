@@ -308,13 +308,17 @@ static int ic910_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
     {
         *freq = origfreq;
     }
-    else if (RIG_VFO_TX == vfo) {
-	    vfo = priv->tx_vfo;
-	    rig_debug(RIG_DEBUG_VERBOSE, "%s: VFO_TX asked for so vfo=%s\n", __func__, rig_strvfo(vfo));
+    else if (RIG_VFO_TX == vfo)
+    {
+        vfo = priv->tx_vfo;
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: VFO_TX asked for so vfo=%s\n", __func__,
+                  rig_strvfo(vfo));
     }
-    else if (RIG_VFO_RX == vfo) {
-	    vfo = priv->rx_vfo;
-	    rig_debug(RIG_DEBUG_VERBOSE, "%s: VFO_RX asked for so vfo=%s\n", __func__, rig_strvfo(vfo));
+    else if (RIG_VFO_RX == vfo)
+    {
+        vfo = priv->rx_vfo;
+        rig_debug(RIG_DEBUG_VERBOSE, "%s: VFO_RX asked for so vfo=%s\n", __func__,
+                  rig_strvfo(vfo));
     }
     else { retval = -RIG_EVFO; }
 
@@ -325,12 +329,12 @@ static int ic910_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
  * This function does the special bandwidth coding for IC-910
  * (1 - normal, 2 - narrow)
  */
-static int ic910_r2i_mode(RIG *rig, rmode_t mode, pbwidth_t width,
+static int ic910_r2i_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width,
                           unsigned char *md, signed char *pd)
 {
     int err;
 
-    err = rig2icom_mode(rig, mode, width, md, pd);
+    err = rig2icom_mode(rig, vfo, mode, width, md, pd);
 
     if (*pd == PD_NARROW_3)
     {
@@ -484,6 +488,7 @@ const struct rig_caps ic910_caps =
     .has_get_parm =   RIG_PARM_NONE,
     .has_set_parm =   RIG_PARM_NONE,
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_VOXDELAY] = { .min = { .i = 0 }, .max = { .i = 20 }, .step = { .i = 1 } },
     },

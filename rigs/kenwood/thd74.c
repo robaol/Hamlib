@@ -470,7 +470,7 @@ int thd74_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     {
         kmode = rmode2kenwood(mode, priv->mode_table);
 
-        if (kmode == -1)
+        if (kmode < 0)
         {
             rig_debug(RIG_DEBUG_WARN, "%s: Unsupported Mode value '%s'\n",
                       __func__, rig_strrmode(mode));
@@ -1108,7 +1108,7 @@ static int thd74_set_parm(RIG *rig, setting_t parm, value_t val)
 
     switch (parm)
     {
-    case RIG_PARM_TIME: // FIXME check val, send formated via RT
+    case RIG_PARM_TIME: // FIXME check val, send formatted via RT
     default:
         return -RIG_EINVAL;
     }
@@ -1188,7 +1188,7 @@ static int thd74_get_mem(RIG *rig, vfo_t vfo, int *ch)
     return RIG_OK;
 }
 
-static int thd74_set_channel(RIG *rig, const channel_t *chan)
+static int thd74_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
 
@@ -1275,7 +1275,8 @@ static int thd74_parse_channel(int kind, const char *buf, channel_t *chan)
     return RIG_OK;
 }
 
-static int thd74_get_channel(RIG *rig, channel_t *chan, int read_only)
+static int thd74_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
+                             int read_only)
 {
     int retval;
     char buf[72];
@@ -1526,7 +1527,7 @@ int thd74_get_chan_all_cb(RIG *rig, chan_cb_t chan_cb, rig_ptr_t arg)
 
 
     hl_usleep(100 * 1000); /* let the pcr settle */
-    serial_flush(rp);   /* flush any remaining data */
+    rig_flush(rp);   /* flush any remaining data */
     ret = ser_set_rts(rp, 1);   /* setRTS or Hardware flow control? */
 
     if (ret != RIG_OK)

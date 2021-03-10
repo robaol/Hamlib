@@ -1121,7 +1121,7 @@ static int thd72_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
 
 static int thd72_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
 {
-    int retval, f;
+    int retval, f = -1;
     char c;
 
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
@@ -1271,7 +1271,7 @@ static int thd72_get_mem(RIG *rig, vfo_t vfo, int *ch)
     return RIG_OK;
 }
 
-static int thd72_set_channel(RIG *rig, const channel_t *chan)
+static int thd72_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     rig_debug(RIG_DEBUG_TRACE, "%s: called\n", __func__);
 
@@ -1358,7 +1358,8 @@ static int thd72_parse_channel(int kind, const char *buf, channel_t *chan)
     return RIG_OK;
 }
 
-static int thd72_get_channel(RIG *rig, channel_t *chan, int read_only)
+static int thd72_get_channel(RIG *rig, vfo_t vfo, channel_t *chan,
+                             int read_only)
 {
     int retval;
     char buf[72];
@@ -1514,7 +1515,7 @@ int thd72_get_chan_all_cb(RIG *rig, chan_cb_t chan_cb, rig_ptr_t arg)
 
 
     hl_usleep(100 * 1000); /* let the pcr settle */
-    serial_flush(rp); /* flush any remaining data */
+    rig_flush(rp); /* flush any remaining data */
     ret = ser_set_rts(rp, 1); /* setRTS or Hardware flow control? */
 
     if (ret != RIG_OK)

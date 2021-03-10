@@ -38,24 +38,19 @@
 #include "hamlib/rig.h"
 #include "bandplan.h"
 #include "serial.h"
-#include "misc.h"
-#include "yaesu.h"
 #include "newcat.h"
 #include "ft891.h"
 #include "idx_builtin.h"
 
 /*
- * ft891 rigs capabilities.
- * Also this struct is READONLY!
- *
+ * FT-891 rig capabilities
  */
-
 const struct rig_caps ft891_caps =
 {
     RIG_MODEL(RIG_MODEL_FT891),
     .model_name =         "FT-891",
     .mfg_name =           "Yaesu",
-    .version =            NEWCAT_VER ".0",
+    .version =            NEWCAT_VER ".3",
     .copyright =          "LGPL",
     .status =             RIG_STATUS_STABLE,
     .rig_type =           RIG_TYPE_TRANSCEIVER,
@@ -65,7 +60,7 @@ const struct rig_caps ft891_caps =
     .serial_rate_min =    4800,         /* Default rate per manual */
     .serial_rate_max =    38400,
     .serial_data_bits =   8,
-    .serial_stop_bits =   1,            /* Assumed since manual makes no mention */
+    .serial_stop_bits =   2,            /* Assumed since manual makes no mention */
     .serial_parity =      RIG_PARITY_NONE,
     .serial_handshake =   RIG_HANDSHAKE_HARDWARE,
     .write_delay =        FT891_WRITE_DELAY,
@@ -79,25 +74,28 @@ const struct rig_caps ft891_caps =
     .has_get_parm =       RIG_PARM_NONE,
     .has_set_parm =       RIG_PARM_NONE,
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
         [LVL_CWPITCH] = { .min = { .i = 300 }, .max = { .i = 1050 }, .step = { .i = 50 } },
+        [LVL_KEYSPD] = { .min = { .i = 4 }, .max = { .i = 60 }, .step = { .i = 1 } },
+        [LVL_NOTCHF] = { .min = { .i = 1 }, .max = { .i = 3200 }, .step = { .i = 10 } },
     },
     .ctcss_list =         common_ctcss_list,
     .dcs_list =           NULL,
-    .preamp =             { 10, 20, RIG_DBLST_END, }, /* TBC */
-    .attenuator =         { 6, 12, 18, RIG_DBLST_END, },
+    .preamp =             { 10, RIG_DBLST_END, }, /* TBC */
+    .attenuator =         { 12, RIG_DBLST_END, },
     .max_rit =            Hz(9999),
     .max_xit =            Hz(9999),
-    .max_ifshift =        Hz(1000),
+    .max_ifshift =        Hz(1200),
     .vfo_ops =            FT891_VFO_OPS,
     .targetable_vfo =     RIG_TARGETABLE_FREQ,
     .transceive =         RIG_TRN_OFF,        /* May enable later as the 950 has an Auto Info command */
     .bank_qty =           0,
     .chan_desc_sz =       0,
+    .rfpower_meter_cal =  FT891_RFPOWER_METER_CAL,
     .str_cal =            FT891_STR_CAL,
     .chan_list =          {
         {   1,  99, RIG_MTYPE_MEM,  NEWCAT_MEM_CAP },
-        { 100, 117, RIG_MTYPE_EDGE, NEWCAT_MEM_CAP },    /* two by two */
         RIG_CHAN_END,
     },
 
@@ -175,6 +173,7 @@ const struct rig_caps ft891_caps =
         {RIG_MODE_SSB,                Hz(600)},     /*        SSB */
         {RIG_MODE_SSB,                Hz(400)},     /*        SSB */
         {RIG_MODE_SSB,                Hz(200)},     /*        SSB */
+        {FT891_CW_RTTY_PKT_RX_MODES | RIG_MODE_SSB, RIG_FLT_ANY },
         {RIG_MODE_AM,                 Hz(9000)},    /* Normal AM */
         {RIG_MODE_AM,                 Hz(6000)},    /* Narrow AM */
         {FT891_FM_RX_MODES,           Hz(16000)},   /* Normal FM */
@@ -194,7 +193,6 @@ const struct rig_caps ft891_caps =
     .get_freq =           newcat_get_freq,
     .set_mode =           ft891_set_mode,
     .get_mode =           newcat_get_mode,
-    .get_vfo =            newcat_get_vfo,
     .set_ptt =            newcat_set_ptt,
     .get_ptt =            newcat_get_ptt,
     .set_split_vfo =      ft891_set_split_vfo,
@@ -205,8 +203,6 @@ const struct rig_caps ft891_caps =
     .get_rit =            newcat_get_rit,
     .set_xit =            newcat_set_xit,
     .get_xit =            newcat_get_xit,
-    .set_ant =            newcat_set_ant,
-    .get_ant =            newcat_get_ant,
     .get_func =           newcat_get_func,
     .set_func =           newcat_set_func,
     .get_level =          newcat_get_level,
@@ -219,6 +215,8 @@ const struct rig_caps ft891_caps =
     .mW2power =           newcat_mW2power,
     .set_rptr_shift =     newcat_set_rptr_shift,
     .get_rptr_shift =     newcat_get_rptr_shift,
+    .set_rptr_offs =      newcat_set_rptr_offs,
+    .get_rptr_offs =      newcat_get_rptr_offs,
     .set_ctcss_tone =     newcat_set_ctcss_tone,
     .get_ctcss_tone =     newcat_get_ctcss_tone,
     .set_ctcss_sql  =     newcat_set_ctcss_sql,
@@ -509,7 +507,7 @@ int ft891_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     // Copy A to B
     snprintf(priv->cmd_str, sizeof(priv->cmd_str), "AB;");
 
-    if (RIG_OK != (err = newcat_get_cmd(rig)))
+    if (RIG_OK != (err = newcat_set_cmd(rig)))
     {
         return err;
     }

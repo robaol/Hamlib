@@ -87,6 +87,10 @@
 #define TOK_DCD_PATHNAME    TOKEN_FRONTEND(33)
 /** \brief  CM108 GPIO bit number for PTT */
 #define TOK_PTT_BITNUM        TOKEN_FRONTEND(34)
+/** \brief  PTT share with other applications */
+#define TOK_PTT_SHARE        TOKEN_FRONTEND(35)
+/** \brief  PTT share with other applications */
+#define TOK_FLUSHX        TOKEN_FRONTEND(36)
 /*
  * rig specific tokens
  */
@@ -104,6 +108,18 @@
 #define TOK_RANGE_NAME  TOKEN_FRONTEND(122)
 /** \brief rig: Cache timeout */
 #define TOK_CACHE_TIMEOUT  TOKEN_FRONTEND(123)
+/** \brief rig: Auto power on rig_open when supported */
+#define TOK_AUTO_POWER_ON  TOKEN_FRONTEND(124)
+/** \brief rig: Auto power off rig_close when supported */
+#define TOK_AUTO_POWER_OFF  TOKEN_FRONTEND(125)
+/** \brief rig: Auto disable screensaver */
+#define TOK_AUTO_DISABLE_SCREENSAVER  TOKEN_FRONTEND(126)
+/** \brief rig: Disable Yaesu band select logic */
+#define TOK_DISABLE_YAESU_BANDSELECT  TOKEN_FRONTEND(127)
+/** \brief rig: Supporess get_freq on VFOB for satellite RIT tuning */
+#define TOK_TWIDDLE_TIMEOUT  TOKEN_FRONTEND(128)
+/** \brief rig: Supporess get_freq on VFOB for satellite RIT tuning */
+#define TOK_TWIDDLE_RIT  TOKEN_FRONTEND(129)
 /*
  * rotator specific tokens
  * (strictly, should be documented as rotator_internal)

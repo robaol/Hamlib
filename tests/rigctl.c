@@ -23,6 +23,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
+#include <hamlibdatetime.h>
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
@@ -71,7 +72,6 @@ extern int read_history();
 #include "iofunc.h"
 #include "serial.h"
 #include "sprintflst.h"
-#include "dummy/dummy.h"
 #include "rigctl_parse.h"
 
 #define MAXNAMSIZ 32
@@ -148,16 +148,16 @@ int main(int argc, char *argv[])
     char conf_parms[MAXCONFLEN] = "";
     int interactive;    /* if no cmd on command line, switch to interactive */
     int prompt = 1;         /* Print prompt in rigctl */
-    int vfo_mode = 0;       /* vfo_mode = 0 means target VFO is 'currVFO' */
+    int vfo_opt = 0;       /* vfo_opt = 0 means target VFO is 'currVFO' */
     char send_cmd_term = '\r';  /* send_cmd termination char */
     int ext_resp = 0;
     char resp_sep = '\n';
-    int i;
 
     while (1)
     {
         int c;
         int option_index = 0;
+        char dummy[2];
 
         c = getopt_long(argc,
                         argv,
@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
             exit(0);
 
         case 'V':
-            version();
+            printf("rigctl %s\nLast commit was %s\n", hamlib_version, HAMLIBDATETIME);
             exit(0);
 
         case 'm':
@@ -353,7 +353,12 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            serial_rate = atoi(optarg);
+            if (sscanf(optarg, "%d%1s", &serial_rate, dummy) != 1)
+            {
+                fprintf(stderr, "Invalid baud rate of %s\n", optarg);
+                exit(1);
+            }
+
             break;
 
         case 'C':
@@ -379,7 +384,7 @@ int main(int argc, char *argv[])
             break;
 
         case 'o':
-            vfo_mode++;
+            vfo_opt = 1;
             break;
 
         case 'n':
@@ -428,8 +433,8 @@ int main(int argc, char *argv[])
 
     rig_set_debug(verbose);
 
-    rig_debug(RIG_DEBUG_VERBOSE, "rigctl, %s %s\n", hamlib_version,
-              __DATE__ " " __TIME__);
+    rig_debug(RIG_DEBUG_VERBOSE, "rigctl %s\nLast commit was %s\n", hamlib_version,
+              HAMLIBDATETIME);
     rig_debug(RIG_DEBUG_VERBOSE, "%s",
               "Report bugs to <hamlib-developer@lists.sourceforge.net>\n\n");
 
@@ -467,7 +472,7 @@ int main(int argc, char *argv[])
 
     if (rig_file)
     {
-        strncpy(my_rig->state.rigport.pathname, rig_file, FILPATHLEN - 1);
+        strncpy(my_rig->state.rigport.pathname, rig_file, HAMLIB_FILPATHLEN - 1);
     }
 
     /*
@@ -485,12 +490,12 @@ int main(int argc, char *argv[])
 
     if (ptt_file)
     {
-        strncpy(my_rig->state.pttport.pathname, ptt_file, FILPATHLEN - 1);
+        strncpy(my_rig->state.pttport.pathname, ptt_file, HAMLIB_FILPATHLEN - 1);
     }
 
     if (dcd_file)
     {
-        strncpy(my_rig->state.dcdport.pathname, dcd_file, FILPATHLEN - 1);
+        strncpy(my_rig->state.dcdport.pathname, dcd_file, HAMLIB_FILPATHLEN - 1);
     }
 
     /* FIXME: bound checking and port type == serial */
@@ -523,19 +528,7 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
-    i = 0;
-
-    do   // we'll try 5 times and sleep 200ms between tries
-    {
-        retcode = rig_open(my_rig);
-
-        if (retcode != RIG_OK)
-        {
-            hl_usleep(200000);
-            rig_debug(RIG_DEBUG_TRACE, "%s: error opening rig, try#%d\n", __func__, i + 1);
-        }
-    }
-    while (retcode != RIG_OK && ++i < 5);
+    retcode = rig_open(my_rig);
 
     if (retcode != RIG_OK)
     {
@@ -554,25 +547,9 @@ int main(int argc, char *argv[])
     if (my_rig->caps->rig_model == RIG_MODEL_NETRIGCTL)
     {
         /* We automatically detect if we need to be in vfo mode or not */
-        int rigctld_vfo_mode = netrigctl_get_vfo_mode(my_rig);
-
-        if (rigctld_vfo_mode && !vfo_mode)
-        {
-            fprintf(stderr,
-                    "Looks like rigctld is using vfo mode so we're switching to vfo mode\n");
-            vfo_mode = rigctld_vfo_mode;
-        }
-        else if (!rigctld_vfo_mode && vfo_mode)
-        {
-            fprintf(stderr,
-                    "Looks like rigctld is not using vfo mode so we're switching vfo mode off\n");
-            vfo_mode = rigctld_vfo_mode;
-        }
-        else if (vfo_mode && my_rig->caps->rig_model != RIG_MODEL_NETRIGCTL)
-        {
-            fprintf(stderr, "vfo mode doesn't make sense for any rig other than rig#2\n");
-            fprintf(stderr, "But we'll let you run this way if you want\n");
-        }
+        int rigctld_vfo_opt = netrigctl_get_vfo_mode(my_rig);
+        vfo_opt = my_rig->state.vfo_opt = rigctld_vfo_opt;
+        rig_debug(RIG_DEBUG_TRACE, "%s vfo_opt=%d\n", __func__, vfo_opt);
     }
 
     rig_debug(RIG_DEBUG_VERBOSE,
@@ -631,12 +608,31 @@ int main(int argc, char *argv[])
     do
     {
         retcode = rigctl_parse(my_rig, stdin, stdout, argv, argc, NULL,
-                               interactive, prompt, &vfo_mode, send_cmd_term,
+                               interactive, prompt, &vfo_opt, send_cmd_term,
                                &ext_resp, &resp_sep);
 
         if (retcode == 2)
         {
             exitcode = 2;
+        }
+
+        // if we get a hard error we try to reopen the rig again
+        // this should cover short dropouts that can occur
+        if (retcode == -RIG_EIO || retcode == 2)
+        {
+            int retry = 3;
+            rig_debug(RIG_DEBUG_ERR, "%s: i/o error\n", __func__)
+
+            do
+            {
+                retcode = rig_close(my_rig);
+                hl_usleep(1000 * 1000);
+                rig_debug(RIG_DEBUG_ERR, "%s: rig_close retcode=%d\n", __func__, retcode);
+                retcode = rig_open(my_rig);
+                rig_debug(RIG_DEBUG_ERR, "%s: rig_open retcode=%d\n", __func__, retcode);
+            }
+            while (retry-- > 0 && retcode != RIG_OK);
+
         }
     }
     while (retcode == 0 || retcode == 2 || retcode == -RIG_ENAVAIL);

@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>  /* String function definitions */
 #include <unistd.h>  /* UNIX standard function definitions */
+#include <math.h>
 
 #ifdef HAVE_SYS_IOCTL_H
 #  include <sys/ioctl.h>
@@ -35,7 +36,6 @@
 #include "parallel.h"
 #include "misc.h"
 #include "register.h"
-#include "math.h"
 
 static int
 if100_set_position(ROT *rot, azimuth_t az, elevation_t el)
@@ -105,7 +105,7 @@ const struct rot_caps if100_rot_caps =
     ROT_MODEL(ROT_MODEL_IF100),
     .model_name =       "IF-100",
     .mfg_name =         "AMSAT",
-    .version =          "0.1",
+    .version =          "20110531.0",
     .copyright =        "LGPL",
     .status =           RIG_STATUS_UNTESTED,
     .rot_type =         ROT_TYPE_OTHER,

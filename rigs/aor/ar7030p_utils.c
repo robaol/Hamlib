@@ -36,7 +36,7 @@
 static enum PAGE_e curPage = NONE; /* Current memory page */
 static unsigned int curAddr = 65535; /* Current page address */
 static enum LOCK_LVL_e curLock = LOCK_0; /* Current lock level */
-static const unsigned int PAGE_SIZE[] =
+static const unsigned int AR7030_PAGE_SIZE[] =
 {
     256, 256, 512, 4096, 4096,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -435,7 +435,7 @@ static int setAddr(RIG *rig, enum PAGE_e page, unsigned int addr)
 
     if ((EEPROM3 >= page) || (ROM == page))
     {
-        if (PAGE_SIZE[page] > addr)
+        if (AR7030_PAGE_SIZE[page] > addr)
         {
             if (curPage != page)
             {
@@ -954,7 +954,7 @@ int bcd2Int(const unsigned char bcd)
  *
  * \param int Integer value (0-99)
  *
- * \return 2 digit BCD equvalent (0-99), 0xff on failure
+ * \return 2 digit BCD equivalent (0-99), 0xff on failure
  */
 unsigned char int2BCD(const unsigned int val)
 {
@@ -1042,7 +1042,7 @@ int getCalLevel(RIG *rig, unsigned char rawAgc, int *dbm)
             }
             else
             {
-                step = 20; /* HACK - try and fix mimimum AGC readings */
+                step = 20; /* HACK - try and fix minimum AGC readings */
             }
 
             rig_debug(RIG_DEBUG_VERBOSE, "%s: got step size %d\n", __func__, step);
@@ -1454,11 +1454,11 @@ int pageSize(const enum PAGE_e page)
 
     if ((WORKING <= page) && (EEPROM3 >= page))
     {
-        rc = (int) PAGE_SIZE[ page ];
+        rc = (int) AR7030_PAGE_SIZE[ page ];
     }
     else if (ROM == page)
     {
-        rc = (int) PAGE_SIZE[ page ];
+        rc = (int) AR7030_PAGE_SIZE[ page ];
     }
     else
     {

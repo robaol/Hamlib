@@ -582,9 +582,9 @@ int tt585_get_status_data(RIG *rig)
         return RIG_OK;
     }
 
-    serial_flush(rigport);
+    rig_flush(rigport);
 
-    /* send STATUS comand to fetch data*/
+    /* send STATUS command to fetch data*/
 
     ret = write_block(rigport, "\\", 1);
 
@@ -622,7 +622,7 @@ int tt585_set_parm(RIG *rig, setting_t parm, value_t val)
             return ret;
         }
 
-        /* exact addional delay TBC */
+        /* exact additional delay TBC */
         sleep(1);
         return RIG_OK;
 

@@ -42,10 +42,10 @@
  * The vr5000 has no CAT commands for reading the frequency, ts nor mode.
  * These function are emulated, because the vr5000 thunkates the input
  * frequency. Secondly when changing the mode, ts will change, and since
- * ts it the one that desides how the frequency is thunkated, the frequency
+ * ts it the one that decides how the frequency is thunkated, the frequency
  * will change.
  *
- * True reciever range was not specified correctly in manual. No all
+ * True receiver range was not specified correctly in manual. No all
  * mode allow to go down to 100 Khz. Therefore the minimum frequency
  * which will be allowed is 101.5 kKz. Maximum is 2599.99 Mhz.
  *
@@ -412,7 +412,7 @@ int vr5000_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         return -RIG_EINVAL;
     }
 
-    serial_flush(&rig->state.rigport);
+    rig_flush(&rig->state.rigport);
 
     /* send READ STATUS(Meter only) cmd to rig  */
     retval = write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
@@ -446,7 +446,7 @@ int vr5000_get_dcd(RIG *rig, vfo_t vfo, dcd_t *dcd)
     unsigned char cmd[YAESU_CMD_LENGTH] = { 0x00, 0x00, 0x00, 0x00, 0xe7};
     int retval;
 
-    serial_flush(&rig->state.rigport);
+    rig_flush(&rig->state.rigport);
 
     /* send READ STATUS(Meter only) cmd to rig  */
     retval = write_block(&rig->state.rigport, (char *) cmd, YAESU_CMD_LENGTH);
@@ -569,7 +569,7 @@ void correct_frequency(RIG *rig, vfo_t vfo, freq_t curr_freq, freq_t *freq)
 
 /*
  * Set mode and ts, then frequency. Both mode/ts and frequency are set
- * everytime one of them changes.
+ * every time one of them changes.
  */
 int set_vr5000(RIG *rig, vfo_t vfo, freq_t freq, rmode_t mode, pbwidth_t width,
                shortfreq_t ts)
@@ -648,7 +648,7 @@ int find_tuning_step(RIG *rig, vfo_t vfo, rmode_t mode, shortfreq_t *ts)
 {
     int i;
 
-    for (i = 0; i < TSLSTSIZ; i++)
+    for (i = 0; i < HAMLIB_TSLSTSIZ; i++)
     {
         if ((rig->caps->tuning_steps[i].modes & mode) != 0)
         {
@@ -667,7 +667,7 @@ int check_tuning_step(RIG *rig, vfo_t vfo, rmode_t mode, shortfreq_t ts)
 {
     int i;
 
-    for (i = 0; i < TSLSTSIZ; i++)
+    for (i = 0; i < HAMLIB_TSLSTSIZ; i++)
     {
         if (rig->caps->tuning_steps[i].ts == ts &&
                 ((rig->caps->tuning_steps[i].modes & mode) != 0))

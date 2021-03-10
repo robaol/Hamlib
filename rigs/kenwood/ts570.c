@@ -352,7 +352,7 @@ ts570_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         {
             int i;
 
-            for (i = 0; i < MAXDBLSTSIZ; i++)
+            for (i = 0; i < HAMLIB_MAXDBLSTSIZ; i++)
                 if (kenwood_val == rig->state.preamp[i])
                 {
                     sprintf(levelbuf, "PA%01d", i + 1);
@@ -475,7 +475,7 @@ ts570_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         {
             int i;
 
-            for (i = 0; i < levelint && i < MAXDBLSTSIZ; i++)
+            for (i = 0; i < levelint && i < HAMLIB_MAXDBLSTSIZ; i++)
             {
                 if (rig->state.preamp[i] == 0)
                 {
@@ -688,7 +688,7 @@ int ts570_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
     .ctcss_tone=1       \
 }
 
-int ts570_set_channel(RIG *rig, const channel_t *chan)
+int ts570_set_channel(RIG *rig, vfo_t vfo, const channel_t *chan)
 {
     char cmdbuf[30];
     int retval, cmd_len;
@@ -1094,6 +1094,7 @@ const struct rig_caps ts570s_caps =
     .set_level =  ts570_set_level,
     .get_level =  ts570_get_level,
     .send_morse =  kenwood_send_morse,
+    .wait_morse =  rig_wait_morse,
     .vfo_op =  kenwood_vfo_op,
     .set_mem =  kenwood_set_mem,
     .get_mem =  kenwood_get_mem,
@@ -1280,6 +1281,7 @@ const struct rig_caps ts570d_caps =
     .set_level =  ts570_set_level,
     .get_level =  ts570_get_level,
     .send_morse =  kenwood_send_morse,
+    .wait_morse =  rig_wait_morse,
     .vfo_op =  kenwood_vfo_op,
     .set_mem =  kenwood_set_mem,
     .get_mem =  kenwood_get_mem,

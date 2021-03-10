@@ -643,14 +643,14 @@ int Rig::getMem (vfo_t vfo)
 	return mem;
 }
 
-void Rig::setChannel (const channel_t *chan)
+void Rig::setChannel (const channel_t *chan, vfo_t vfo)
 {
-	CHECK_RIG( rig_set_channel(theRig, chan) );
+	CHECK_RIG( rig_set_channel(theRig, vfo, chan) );
 }
 
-void Rig::getChannel (channel_t *chan, int readOnly)
+void Rig::getChannel (channel_t *chan,vfo_t vfo, int readOnly)
 {
-	CHECK_RIG( rig_get_channel(theRig, chan, readOnly) );
+	CHECK_RIG( rig_get_channel(theRig, vfo, chan, readOnly) );
 }
 
 
@@ -673,7 +673,7 @@ rmode_t Rig::RngRxModes (freq_t freq)
 	unsigned modes = RIG_MODE_NONE;
 	int i;
 
-	for (i=0; i<FRQRANGESIZ; i++) {
+	for (i=0; i<HAMLIB_FRQRANGESIZ; i++) {
 		freq_range_t *rng = &theRig->state.rx_range_list[i];
 		if (RIG_IS_FRNG_END(*rng)) {
 			return (rmode_t)modes;
@@ -690,7 +690,7 @@ rmode_t Rig::RngTxModes (freq_t freq)
 	unsigned modes = RIG_MODE_NONE;
 	int i;
 
-	for (i=0; i<FRQRANGESIZ; i++) {
+	for (i=0; i<HAMLIB_FRQRANGESIZ; i++) {
 	  freq_range_t *rng = &theRig->state.tx_range_list[i];
 		if (RIG_IS_FRNG_END(*rng)) {
 			return (rmode_t)modes;

@@ -68,9 +68,9 @@ struct confparams icr30_ext[] =
 
 struct cmdparams icr30_extcmds[] =
 {
-    { {.t = TOK_ANL}, C_CTL_MEM, S_MEM_ANL, SC_MOD_RW, 0, {}, CMD_DAT_BOL, 1 },
-    { {.t = TOK_EAR}, C_CTL_MEM, S_MEM_EAR, SC_MOD_RW, 0, {}, CMD_DAT_BOL, 1 },
-    { {.t = TOK_REC}, C_CTL_MEM, S_MEM_REC, SC_MOD_WR, 0, {}, CMD_DAT_BOL, 1 },
+    { {.t = TOK_ANL}, CMD_PARAM_TYPE_TOKEN, C_CTL_MEM, S_MEM_ANL, SC_MOD_RW, 0, {}, CMD_DAT_BOL, 1 },
+    { {.t = TOK_EAR}, CMD_PARAM_TYPE_TOKEN, C_CTL_MEM, S_MEM_EAR, SC_MOD_RW, 0, {}, CMD_DAT_BOL, 1 },
+    { {.t = TOK_REC}, CMD_PARAM_TYPE_TOKEN, C_CTL_MEM, S_MEM_REC, SC_MOD_WR, 0, {}, CMD_DAT_BOL, 1 },
     { {0} }
 };
 
@@ -85,12 +85,12 @@ struct cmdparams icr30_extcmds[] =
  * (1 - normal, 2 - narrow)
  */
 
-static int icr30_r2i_mode(RIG *rig, rmode_t mode, pbwidth_t width,
+static int icr30_r2i_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width,
                           unsigned char *md, signed char *pd)
 {
     int err;
 
-    err = rig2icom_mode(rig, mode, width, md, pd);
+    err = rig2icom_mode(rig, vfo, mode, width, md, pd);
 
     if (*pd == PD_NARROW_3)
     {
@@ -158,6 +158,7 @@ const struct rig_caps icr30_caps =
     .has_get_parm =  RIG_PARM_NONE,
     .has_set_parm =  RIG_PARM_NONE,
     .level_gran = {
+        // cppcheck-suppress *
         [LVL_RAWSTR] = { .min = { .i = 0 }, .max = { .i = 255 } },
     },
     .parm_gran =  {},

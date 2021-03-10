@@ -42,11 +42,11 @@ static int miniVNA_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     char cmdstr[40];
     int retval;
 
-    sprintf_freq(fstr, freq);
+    sprintf_freq(fstr, sizeof(fstr), freq);
     rig_debug(RIG_DEBUG_TRACE, "%s called: %s %s\n", __func__,
               rig_strvfo(vfo), fstr);
 
-    serial_flush(&rig->state.rigport);
+    rig_flush(&rig->state.rigport);
 
     sprintf(cmdstr, "0\r%lu\r1\r0\r", (unsigned long int)(freq * DDS_RATIO));
 
