@@ -83,14 +83,14 @@
 
 #define CMD_RXFREQ  "RXF"   /* Receive frequency */
 #define CMD_TXFREQ  "TXF"   /* Transmit frequency */
-#define CMD_MODE    "MODE"  /* Mode */
-#define CMD_RFGAIN  "RFG"
-#define CMD_RFPWR   "TXP"
-#define CMD_AGC     "AGC"
-#define CMD_NB      "NB"
-#define CMD_AFGAIN  "AFG"
-#define CMD_TUNER   "TUNER"
-#define CMD_PTT     "TRX"   /* PTT */
+#define CMD_MODE    "MODE"  /* Modulation mode */
+#define CMD_RFGAIN  "RFG"   /* 0..n, typically n = 9 */
+#define CMD_RFPWR   "TXP"   /* Tx Power. 1..n, typically n = 3, model dependent */
+#define CMD_AGC     "AGC"   /* ON | OFF */
+#define CMD_NB      "NB"    /* ON | OFF */
+#define CMD_AFGAIN  "AFG"   /* 0..255 */
+#define CMD_TUNER   "TUNER" /* ON | TUNE | OFF */
+#define CMD_PTT     "TRX"   /* PTT: TX | RX. TX selects modulation from NMEA port. Auto tuning controlled by Set Mode */
 #define CMD_SQLS    "SQLS"  /* Squelch status - Output only*/
 #define CMD_SMETER  "SIGM"  /* S-meter read - Output only*/
 #define CMD_REMOTE  "REMOTE"    /* Remote */
