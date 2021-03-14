@@ -81,21 +81,20 @@
 #endif
 #define MD_FSK  "J2B"
 
-#define CMD_TXFREQ  "TXF"   /* Transmit frequency */
 #define CMD_RXFREQ  "RXF"   /* Receive frequency */
+#define CMD_TXFREQ  "TXF"   /* Transmit frequency */
 #define CMD_MODE    "MODE"  /* Mode */
-#define CMD_REMOTE  "REMOTE"    /* Remote */
-#define CMD_PTT     "TRX"   /* PTT */
-#define CMD_AFGAIN  "AFG"
 #define CMD_RFGAIN  "RFG"
 #define CMD_RFPWR   "TXP"
-#define CMD_NB      "NB"
 #define CMD_AGC     "AGC"
+#define CMD_NB      "NB"
+#define CMD_AFGAIN  "AFG"
 #define CMD_TUNER   "TUNER"
+#define CMD_PTT     "TRX"   /* PTT */
+#define CMD_SQLS    "SQLS"  /* Squelch status - Output only*/
+#define CMD_SMETER  "SIGM"  /* S-meter read - Output only*/
+#define CMD_REMOTE  "REMOTE"    /* Remote */
 
-/* Data Output Commands */
-#define CMD_SMETER  "SIGM"  /* S-meter read */
-#define CMD_SQLS    "SQLS"  /* Squelch status */
 
 
 /* Tokens */
