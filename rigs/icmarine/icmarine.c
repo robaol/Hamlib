@@ -107,7 +107,7 @@
 #define CMD_SQLS    "SQLS"  /* Squelch status OPEN | CLOSE - Output only */
 #define CMD_SMETER  "SIGM"  /* S-meter read 0..8 - Output only */
 #define CMD_POMETER "POM"   /* Power meter 0..8 - Output only */
-#define CMD_ANTCURR "ANTM"  /* Antenna Current meter 0..7 - Output only */
+#define CMD_ANTC    "ANTM"  /* Antenna Current meter 0..7 - Output only */
 #define CMD_SPKR    "SP"    /* Speaker ON | OFF */
 #define CMD_DISPDIM "DIM"   /* Dim display ON | OFF */
 #define CMD_REMOTE  "REMOTE"    /* Remote ON | DSC | OFF. DSC not used */
@@ -847,6 +847,22 @@ int icmarine_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         }
 
         val->f = (float)(lvlbuf[0] - '1') / 3.;
+        break;
+
+    case RIG_LEVEL_RFPOWER_METER:
+        retval = icmarine_transaction(rig, CMD_POMETER, NULL, lvlbuf);
+
+        if (retval != RIG_OK)
+        {
+            return retval;
+        }
+
+        if (lvlbuf[0] < '0' || lvlbuf[0] > '8')
+        {
+            return -RIG_EPROTO;
+        }
+
+        val->f = (float)(lvlbuf[0] - '0') / 8.;
         break;
 
     case RIG_LEVEL_AGC:
