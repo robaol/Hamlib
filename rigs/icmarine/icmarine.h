@@ -36,9 +36,11 @@ struct icmarine_priv_caps {
     unsigned char default_remote_id;  /* the remote default equipment's ID */
 };
 
+#define NUM_MODE_STR (6)
 struct icmarine_priv_data {
     unsigned char remote_id;  /* the remote equipment's ID */
     split_t split; /* current split mode */
+    char *mode_str[NUM_MODE_STR]; /* number of modes defined */
 };
 
 extern const struct confparams icmarine_cfg_params[];
