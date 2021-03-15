@@ -86,7 +86,7 @@
 #define MD_USB  MD_NAME(0)
 #define MD_AM   MD_NAME(1)
 #define MD_LSB  MD_NAME(2)
-#define MD_IFSK MD_NAME(3)
+#define MD_AFSK MD_NAME(3)
 #define MD_FSK  MD_NAME(4)
 #define MD_CW   MD_NAME(5)
 
@@ -98,14 +98,19 @@
 #define CMD_MODE    "MODE"  /* Modulation mode */
 #define CMD_RFGAIN  "RFG"   /* 0..n, typically n = 9 */
 #define CMD_RFPWR   "TXP"   /* Tx Power. 1..n, typically n = 3, model dependent */
-#define CMD_AGC     "AGC"   /* ON | OFF */
-#define CMD_NB      "NB"    /* ON | OFF */
-#define CMD_AFGAIN  "AFG"   /* 0..255 */
+#define CMD_AGC     "AGC"   /* AGC ON | OFF */
+#define CMD_NB      "NB"    /* Noise Blanking ON | OFF */
+#define CMD_SQLC    "SQLC"  /* Squelch Control ON | OFF */
+#define CMD_AFGAIN  "AFG"   /* Speaker Vol 0..255 */
 #define CMD_TUNER   "TUNER" /* ON | TUNE | OFF */
 #define CMD_PTT     "TRX"   /* PTT: TX | RX. TX selects modulation from NMEA port. Auto tuning controlled by Set Mode */
-#define CMD_SQLS    "SQLS"  /* Squelch status - Output only*/
-#define CMD_SMETER  "SIGM"  /* S-meter read - Output only*/
-#define CMD_REMOTE  "REMOTE"    /* Remote */
+#define CMD_SQLS    "SQLS"  /* Squelch status OPEN | CLOSE - Output only */
+#define CMD_SMETER  "SIGM"  /* S-meter read 0..8 - Output only */
+#define CMD_POMETER "POM"   /* Power meter 0..8 - Output only */
+#define CMD_ANTCURR "ANTM"  /* Antenna Current meter 0..7 - Output only */
+#define CMD_SPKR    "SP"    /* Speaker ON | OFF */
+#define CMD_DISPDIM "DIM"   /* Dim display ON | OFF */
+#define CMD_REMOTE  "REMOTE"    /* Remote ON | DSC | OFF. DSC not used */
 
 
 
@@ -163,8 +168,8 @@ int icmarine_init(RIG *rig)
     memset(priv->mode_str, 0, NUM_MODE_STR * sizeof(char *));
     MD_LSB = strdup("LSB");
     MD_USB = strdup("USB");
-    MD_AM = strdup("CW");
-    MD_CW = strdup("AM");
+    MD_CW = strdup("CW");
+    MD_AM = strdup("AM");
     MD_FSK = strdup("J2B");
 
 
@@ -539,6 +544,8 @@ int icmarine_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
 
     case RIG_MODE_RTTY:     pmode = MD_FSK; break;
 
+    case RIG_MODE_PKTUSB:   pmode = MD_AFSK; break;
+
     default:
         rig_debug(RIG_DEBUG_ERR,
                   "%s: unsupported mode %s\n",
@@ -582,6 +589,10 @@ int icmarine_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
     else if (!memcmp(modebuf, MD_FSK, strlen(MD_FSK)))
     {
         *mode = RIG_MODE_RTTY;
+    }
+    else if (!memcmp(modebuf, MD_AFSK, strlen(MD_AFSK)))
+    {
+        *mode = RIG_MODE_PKTUSB;
     }
     else
     {
