@@ -73,13 +73,25 @@
 #define MD_USB  "J3E"
 #define MD_CW   "A1A"
 #define MD_AM   "A3E"
-#else
+//#else
 #define MD_LSB  "LSB"
 #define MD_USB  "USB"
 #define MD_CW   "CW"
 #define MD_AM   "AM"
-#endif
+//#endif
 #define MD_FSK  "J2B"
+#else
+/* Macros to access string definitions of modulation codes for Mode cmd */
+#define MD_NAME(i)  (((struct icmarine_priv_data *)rig->state.priv)->mode_str[(i)])
+#define MD_USB  MD_NAME(0)
+#define MD_AM   MD_NAME(1)
+#define MD_LSB  MD_NAME(2)
+#define MD_IFSK MD_NAME(3)
+#define MD_FSK  MD_NAME(4)
+#define MD_CW   MD_NAME(5)
+
+
+#endif
 
 #define CMD_RXFREQ  "RXF"   /* Receive frequency */
 #define CMD_TXFREQ  "TXF"   /* Transmit frequency */
@@ -148,6 +160,13 @@ int icmarine_init(RIG *rig)
 
     priv->remote_id = priv_caps->default_remote_id;
     priv->split = RIG_SPLIT_OFF;
+    memset(priv->mode_str, 0, NUM_MODE_STR * sizeof(char *));
+    MD_LSB = strdup("LSB");
+    MD_USB = strdup("USB");
+    MD_AM = strdup("CW");
+    MD_CW = strdup("AM");
+    MD_FSK = strdup("J2B");
+
 
     return RIG_OK;
 }
@@ -161,6 +180,14 @@ int icmarine_cleanup(RIG *rig)
 
     if (rig->state.priv)
     {
+        for(int i = 0; i < NUM_MODE_STR; i++)
+        {
+            if(MD_NAME(i) != NULL)
+            {
+                free(MD_NAME(i));
+                MD_NAME(i) = NULL;
+            }
+        }
         free(rig->state.priv);
     }
 
