@@ -715,6 +715,10 @@ int icmarine_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
         retval = icmarine_transaction(rig, CMD_NB, status ? "ON" : "OFF", NULL);
         break;
 
+    case RIG_FUNC_SQL:
+        retval = icmarine_transaction(rig, CMD_SQLC, status ? "ON" : "OFF", NULL);
+        break;
+
     case RIG_FUNC_MUTE:
         retval = icmarine_transaction(rig, CMD_SPKR, status ? "ON" : "OFF", NULL);
         break;
@@ -737,6 +741,10 @@ int icmarine_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
     {
     case RIG_FUNC_NB:
         retval = icmarine_transaction(rig, CMD_NB, NULL, funcbuf);
+        break;
+
+    case RIG_FUNC_SQL:
+        retval = icmarine_transaction(rig, CMD_SQLC, NULL, funcbuf);
         break;
 
     case RIG_FUNC_MUTE:
