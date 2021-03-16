@@ -41,18 +41,22 @@
 
 #include "icm710itu.h"
 
-#define ICM710_MODES (RIG_MODE_SSB | RIG_MODE_CW | RIG_MODE_RTTY)
-#define ICM710_RX_MODES (ICM710_MODES | RIG_MODE_AM)
+#define ICM710ITU_MODES (RIG_MODE_SSB | RIG_MODE_CW | RIG_MODE_RTTY | RIG_MODE_PKTUSB)
+#define ICM710ITU_RX_MODES (ICM710ITU_MODES | RIG_MODE_AM)
 
-#define ICM710_FUNC_ALL (RIG_FUNC_NB)
+#define ICM710ITU_FUNC_ALL (RIG_FUNC_NB | RIG_FUNC_SQL | RIG_FUNC_TUNER | RIG_FUNC_MUTE)
 
-#define ICM710_LEVEL_ALL (RIG_LEVEL_RFPOWER | RIG_LEVEL_AF | RIG_LEVEL_RF | RIG_LEVEL_AGC | RIG_LEVEL_RAWSTR)
+#define ICM710ITU_LEVEL_ALL (RIG_LEVEL_RAWSTR |RIG_LEVEL_AF | RIG_LEVEL_RF | \
+                             RIG_LEVEL_RFPOWER | RIG_LEVEL_RFPOWER_METER | RIG_LEVEL_AGC)
 
-#define ICM710_VFO_ALL (RIG_VFO_A)
+#define ICM710ITU_VFO_ALL (RIG_VFO_A)
 
-#define ICM710_VFO_OPS (RIG_OP_TUNE)
+#define ICMARINE_TUNER_TIMEOUTMS    (10000)
+#define ICM710ITU_VFO_OPS (RIG_OP_TUNE)
 
-#define ICM710_SCAN_OPS (RIG_SCAN_NONE)
+#define ICM710ITU_SCAN_OPS (RIG_SCAN_NONE)
+
+#define ICM710ITU_PARM_ALL (RIG_PARM_BACKLIGHT)
 
 /*
  * TODO calibrate the real values
@@ -65,12 +69,12 @@
         }                       \
     }
 
-static const struct icm710itu_priv_caps icm710itu_priv_caps =
+static const struct icmarine_priv_caps icm710itu_priv_caps =
     {
         .default_remote_id = 0x01, /* default address */
 };
 
-const struct rig_caps icm710_caps =
+const struct rig_caps icm710itu_caps =
     {
         RIG_MODEL(RIG_MODEL_IC_M710ITU),
         .model_name = "IC-M710ITU",
@@ -92,12 +96,12 @@ const struct rig_caps icm710_caps =
         .post_write_delay = 0,
         .timeout = 100,
         .retry = 0,
-        .has_get_func = ICM710_FUNC_ALL,
-        .has_set_func = ICM710_FUNC_ALL,
-        .has_get_level = ICM710_LEVEL_ALL,
-        .has_set_level = RIG_LEVEL_SET(ICM710_LEVEL_ALL),
-        .has_get_parm = RIG_PARM_NONE,
-        .has_set_parm = RIG_PARM_NONE,
+        .has_get_func = ICM710ITU_FUNC_ALL,
+        .has_set_func = ICM710ITU_FUNC_ALL,
+        .has_get_level = ICM710ITU_LEVEL_ALL,
+        .has_set_level = RIG_LEVEL_SET(ICM710ITU_LEVEL_ALL),
+        .has_get_parm = ICM710ITU_PARM_ALL,
+        .has_set_parm = ICM710ITU_PARM_ALL,
         .level_gran = {
             // cppcheck-suppress *
             [LVL_RAWSTR] = {.min = {.i = 0}, .max = {.i = 8}},
@@ -116,8 +120,8 @@ const struct rig_caps icm710_caps =
         .max_xit = Hz(0),
         .max_ifshift = Hz(0),
         .targetable_vfo = 0,
-        .vfo_ops = ICM710_VFO_OPS,
-        //.scan_ops =  ICM710_SCAN_OPS,
+        .vfo_ops = ICM710ITU_VFO_OPS,
+        //.scan_ops =  ICM710ITU_SCAN_OPS,
         .transceive = RIG_TRN_OFF,
         .bank_qty = 0,
         .chan_desc_sz = 0,
@@ -127,41 +131,41 @@ const struct rig_caps icm710_caps =
         },
 
         .rx_range_list1 = {
-            {kHz(500), MHz(30) - 100, ICM710_RX_MODES, -1, -1, ICM710_VFO_ALL},
+            {kHz(500), MHz(30) - 100, ICM710ITU_RX_MODES, -1, -1, ICM710ITU_VFO_ALL},
             RIG_FRNG_END,
         },
         .tx_range_list1 = {
-            {kHz(1600), MHz(3) - 100, ICM710_MODES, W(60), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(4), MHz(5) - 100, ICM710_MODES, W(60), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(6), MHz(7) - 100, ICM710_MODES, W(60), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(8), MHz(9) - 100, ICM710_MODES, W(60), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(12), MHz(14) - 100, ICM710_MODES, W(60), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(16), MHz(18) - 100, ICM710_MODES, W(60), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(18), MHz(20) - 100, ICM710_MODES, W(60), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(22), MHz(23) - 100, ICM710_MODES, W(60), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(25), MHz(27.500), ICM710_MODES, W(60), W(60), ICM710_VFO_ALL, RIG_ANT_1},
+            {kHz(1600), MHz(3) - 100, ICM710ITU_MODES, W(60), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(4), MHz(5) - 100, ICM710ITU_MODES, W(60), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(6), MHz(7) - 100, ICM710ITU_MODES, W(60), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(8), MHz(9) - 100, ICM710ITU_MODES, W(60), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(12), MHz(14) - 100, ICM710ITU_MODES, W(60), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(16), MHz(18) - 100, ICM710ITU_MODES, W(60), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(18), MHz(20) - 100, ICM710ITU_MODES, W(60), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(22), MHz(23) - 100, ICM710ITU_MODES, W(60), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(25), MHz(27.500), ICM710ITU_MODES, W(60), W(60), ICM710ITU_VFO_ALL, RIG_ANT_1},
             RIG_FRNG_END,
         },
 
         .rx_range_list2 = {
-            {kHz(500), MHz(30) - 100, ICM710_RX_MODES, -1, -1, ICM710_VFO_ALL},
+            {kHz(500), MHz(30) - 100, ICM710ITU_RX_MODES, -1, -1, ICM710ITU_VFO_ALL},
             RIG_FRNG_END,
         },
         .tx_range_list2 = {
-            {kHz(1600), MHz(3) - 100, ICM710_MODES, W(20), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(4), MHz(5) - 100, ICM710_MODES, W(20), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(6), MHz(7) - 100, ICM710_MODES, W(20), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(8), MHz(9) - 100, ICM710_MODES, W(20), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(12), MHz(14) - 100, ICM710_MODES, W(20), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(16), MHz(18) - 100, ICM710_MODES, W(20), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(18), MHz(20) - 100, ICM710_MODES, W(20), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(22), MHz(23) - 100, ICM710_MODES, W(20), W(150), ICM710_VFO_ALL, RIG_ANT_1},
-            {MHz(25), MHz(27.500), ICM710_MODES, W(20), W(60), ICM710_VFO_ALL, RIG_ANT_1},
+            {kHz(1600), MHz(3) - 100, ICM710ITU_MODES, W(20), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(4), MHz(5) - 100, ICM710ITU_MODES, W(20), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(6), MHz(7) - 100, ICM710ITU_MODES, W(20), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(8), MHz(9) - 100, ICM710ITU_MODES, W(20), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(12), MHz(14) - 100, ICM710ITU_MODES, W(20), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(16), MHz(18) - 100, ICM710ITU_MODES, W(20), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(18), MHz(20) - 100, ICM710ITU_MODES, W(20), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(22), MHz(23) - 100, ICM710ITU_MODES, W(20), W(150), ICM710ITU_VFO_ALL, RIG_ANT_1},
+            {MHz(25), MHz(27.500), ICM710ITU_MODES, W(20), W(60), ICM710ITU_VFO_ALL, RIG_ANT_1},
             RIG_FRNG_END,
         },
 
         .tuning_steps = {
-            {ICM710_RX_MODES, Hz(1)},
+            {ICM710ITU_RX_MODES, Hz(1)},
             RIG_TS_END,
         },
         /* mode/filter list, remember: order matters! */
@@ -171,7 +175,7 @@ const struct rig_caps icm710_caps =
             RIG_FLT_END,
         },
 
-        .cfgparams = icm710_cfg_params,
+        .cfgparams = icm710itu_cfg_params,
         .set_conf = icmarine_set_conf,
         .get_conf = icmarine_get_conf,
 
@@ -204,7 +208,7 @@ const struct rig_caps icm710_caps =
 };
 
 /*
- * NMEA 0183 protocol is all handled by icmarine_transaction, defined in icmarine.c
+ * NMEA 0183 protocol is handled by icmarine_transaction, defined in icmarine.c
  *
  */
 
@@ -213,7 +217,7 @@ const struct rig_caps icm710_caps =
 /* Tokens */
 #define TOK_REMOTEID TOKEN_BACKEND(1)
 
-const struct confparams icm710_cfg_params[] =
+const struct confparams icm710itu_cfg_params[] =
     {
         {TOK_REMOTEID, "remoteid", "Remote ID", "Transceiver's remote ID", "1", RIG_CONF_NUMERIC, {.n = {1, 99, 1}}},
         {
@@ -227,7 +231,7 @@ const struct confparams icm710_cfg_params[] =
 int icm710itu_init(RIG *rig)
 {
     struct icm710itu_priv_data *priv;
-    const struct icm710itu_priv_caps *priv_caps;
+    const struct icmarine_priv_caps *priv_caps;
     const struct rig_caps *caps;
 
     if (!rig || !rig->caps)
@@ -242,7 +246,7 @@ int icm710itu_init(RIG *rig)
         return -RIG_ECONF;
     }
 
-    priv_caps = (const struct icm710itu_priv_caps *)caps->priv;
+    priv_caps = (const struct icmarine_priv_caps *)caps->priv;
 
     rig->state.priv = (struct icm710itu_priv_data *)calloc(1,
                                                            sizeof(struct icm710itu_priv_data));
@@ -266,7 +270,7 @@ int icm710itu_init(RIG *rig)
     MD_AFSK = strdup("J2B");
     priv->flagTuneOnNewTxfreq = 1;
     priv->lastTunedTxfreq = 0;
-    priv->tuneTimeout = 10000;
+    priv->tuneTimeout = ICMARINE_TUNER_TIMEOUTMS;
 
     return RIG_OK;
 }
@@ -277,7 +281,7 @@ int icm710itu_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     struct icm710itu_priv_data *priv;
     int retval;
 
-    priv = (struct icm710_priv_data *)rig->state.priv;
+    priv = (struct icm710itu_priv_data *)rig->state.priv;
 
     sprintf(freqbuf, "%.6f", freq / MHz(1));
 
