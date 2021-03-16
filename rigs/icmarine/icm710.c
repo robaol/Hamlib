@@ -40,7 +40,12 @@
 #include "bandplan.h"
 
 #include "icm710.h"
+#if 0
 #include "icmarine.h"
+#else
+#define BACKEND_VER "20181007"
+int icmarine_transaction(RIG *rig, const char *cmd, const char *param, char *response);
+#endif
 
 #define ICM710_MODES (RIG_MODE_SSB|RIG_MODE_CW|RIG_MODE_RTTY)
 #define ICM710_RX_MODES (ICM710_MODES|RIG_MODE_AM)
