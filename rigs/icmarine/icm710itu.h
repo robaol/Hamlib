@@ -32,9 +32,11 @@
 
 #include "icmarine.h"
 
+#if 0
 struct icm710itu_priv_caps {
     unsigned char default_remote_id;  /* the remote default equipment's ID */
 };
+#endif
 
 /* The M710 does not support queries */
 /* So we keep a copy of settings in priv to support get functions */
