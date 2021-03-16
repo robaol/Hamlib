@@ -30,6 +30,8 @@
 #include <sys/time.h>
 #endif
 
+#include "icmarine_nmea.h"
+
 #define BACKEND_VER "20181007"
 
 struct icmarine_priv_caps {
@@ -37,11 +39,22 @@ struct icmarine_priv_caps {
 };
 
 #define NUM_MODE_STR (6)
+/* Any priv data structs defined for different icmarine models should include
+ * these fields first, in this order.
+ */
 struct icmarine_priv_data {
     unsigned char remote_id;  /* the remote equipment's ID */
     split_t split; /* current split mode */
     char *mode_str[NUM_MODE_STR]; /* number of modes defined */
 };
+/* Macros to access string definitions of modulation codes for Mode cmd */
+#define MD_NAME(i)  (((struct icmarine_priv_data *)rig->state.priv)->mode_str[(i)])
+#define MD_USB  MD_NAME(0)
+#define MD_AM   MD_NAME(1)
+#define MD_LSB  MD_NAME(2)
+#define MD_AFSK MD_NAME(3)
+#define MD_FSK  MD_NAME(4)
+#define MD_CW   MD_NAME(5)
 
 extern const struct confparams icmarine_cfg_params[];
 
@@ -74,6 +87,7 @@ int icmarine_get_conf(RIG *rig, token_t token, char *val);
 
 extern const struct rig_caps icm700pro_caps;
 extern const struct rig_caps icm710_caps;
+extern const struct rig_caps icm710itu_caps;
 extern const struct rig_caps icm802_caps;
 extern const struct rig_caps icm803_caps;
 

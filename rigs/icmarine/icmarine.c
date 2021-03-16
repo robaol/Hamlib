@@ -36,6 +36,7 @@
 #include <register.h>
 
 #include "icmarine.h"
+#include "icmarine_nmea.h"
 
 
 /*
@@ -81,38 +82,9 @@
 //#endif
 #define MD_FSK  "J2B"
 #else
-/* Macros to access string definitions of modulation codes for Mode cmd */
-#define MD_NAME(i)  (((struct icmarine_priv_data *)rig->state.priv)->mode_str[(i)])
-#define MD_USB  MD_NAME(0)
-#define MD_AM   MD_NAME(1)
-#define MD_LSB  MD_NAME(2)
-#define MD_AFSK MD_NAME(3)
-#define MD_FSK  MD_NAME(4)
-#define MD_CW   MD_NAME(5)
-
+/* Definitions moved to icmarine.h to be part of "base" class */
 
 #endif
-
-#define CMD_RXFREQ  "RXF"   /* Receive frequency */
-#define CMD_TXFREQ  "TXF"   /* Transmit frequency */
-#define CMD_MODE    "MODE"  /* Modulation mode */
-#define CMD_RFGAIN  "RFG"   /* 0..n, typically n = 9 */
-#define CMD_RFPWR   "TXP"   /* Tx Power. 1..n, typically n = 3, model dependent */
-#define CMD_AGC     "AGC"   /* AGC ON | OFF */
-#define CMD_NB      "NB"    /* Noise Blanking ON | OFF */
-#define CMD_SQLC    "SQLC"  /* Squelch Control ON | OFF */
-#define CMD_AFGAIN  "AFG"   /* Speaker Vol 0..255 */
-#define CMD_TUNER   "TUNER" /* ON | TUNE | OFF */
-#define CMD_PTT     "TRX"   /* PTT: TX | RX. TX selects modulation from NMEA port. Auto tuning controlled by Set Mode */
-#define CMD_SQLS    "SQLS"  /* Squelch status OPEN | CLOSE - Output only */
-#define CMD_SMETER  "SIGM"  /* S-meter read 0..8 - Output only */
-#define CMD_POMETER "POM"   /* Power meter 0..8 - Output only */
-#define CMD_ANTC    "ANTM"  /* Antenna Current meter 0..7 - Output only */
-#define CMD_SPKR    "SP"    /* Speaker ON | OFF */
-#define CMD_DISPDIM "DIM"   /* Dim display ON | OFF */
-#define CMD_REMOTE  "REMOTE"    /* Remote ON | DSC | OFF. DSC not used */
-
-
 
 /* Tokens */
 #define TOK_REMOTEID TOKEN_BACKEND(1)
@@ -907,6 +879,58 @@ int icmarine_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
     return retval;
 }
 
+int icmarine_set_parm(RIG *rig, setting_t parm, value_t val)
+{
+    int retval = -RIG_EINVAL;
+
+    rig_debug(RIG_DEBUG_TRACE, "%s:\n", __func__);
+
+    switch(parm)
+    {
+    case RIG_PARM_BACKLIGHT:
+        retval = icmarine_transaction(rig, CMD_DISPDIM,
+                                      val.f > 0.25 ? "ON" : "OFF", NULL);
+        break;
+    default:
+        return -RIG_EINVAL;
+    }
+
+    return retval;
+
+}
+
+int icmarine_get_parm(RIG *rig, setting_t parm, value_t *val)
+{
+    char parmbuf[BUFSZ];
+    int retval;
+
+    rig_debug(RIG_DEBUG_TRACE, "%s:\n", __func__);
+
+    switch (parm)
+    {
+    case RIG_PARM_BACKLIGHT:
+        retval = icmarine_transaction(rig, CMD_DISPDIM, NULL, parmbuf);
+
+        if (retval != RIG_OK)
+        {
+            return retval;
+        }
+
+        if (strncmp(parmbuf, "ON", strlen("ON")) &&
+            strncmp(parmbuf, "OFF", strlen("OFF")) )
+        {
+            return -RIG_EPROTO;
+        }
+
+        val->f = parmbuf[1] == 'N' ? 1.0f : 0.0f;
+        break;
+
+    default:
+        return -RIG_EINVAL;
+    }
+
+    return retval;
+}
 
 
 /*
@@ -918,6 +942,7 @@ DECLARE_INITRIG_BACKEND(icmarine)
 
     rig_register(&icm700pro_caps);
     rig_register(&icm710_caps);
+    rig_register(&icm710itu_caps);
     rig_register(&icm802_caps);
     rig_register(&icm803_caps);
 
