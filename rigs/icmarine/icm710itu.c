@@ -1,5 +1,5 @@
 /*
- *  Hamlib ICOM Marine backend - description of IC-M710 caps
+ *  Hamlib ICOM Marine backend - alternative IC-M710 caps and functions
  *  Copyright (c) 2015 by Stephane Fillod
  *  Copyright (c) 2017 by Michael Black W9MDB
  *
@@ -17,6 +17,126 @@
  *   License along with this library; if not, write to the Free Software
  *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
+ */
+
+/*  
+ *  An alternative IC-M710 backend - M710ITU
+ * 
+ *  by Rob, M5RAO
+ * 
+ *  The initial reason for this backend was that my M710GMDSS radio did not
+ *  respond to the MODE commands of the existing M710 backend; it required the
+ *  use of the ITU emission codes (e.g. J3E instead of USB). So, my initial 
+ *  plan was to find a simple means of changing the strings passed in the MODE
+ *  command.
+ *  I don't know whether:
+ *  - some models ship expecting the more commonplace MODE names,
+ *  - the radios that use the M710 backend have been customised to change the
+ *    mode labels through the cloning interface,
+ *  - changing the mode label would change MODE command keywords for each
+ *    emission type.
+ * 
+ *  I did some experiments with the radio and learned more about it.
+ *  I was using an M710GMDSS with an AT-120. I found that using "set mode" to
+ *  select the AT-120 didn't work at all (neither auto nor manual tune) and I
+ *  needed to select AT-130 to get the radio to perform a tuning cycle.
+ * 
+ *  The following table summarises the interface port names and signals
+ *  involved in CAT (via NMEA), AF out and Modulation in, taken from the instruction
+ *  manual (Section 7 Connector information):
+ * 
+ *      Signals |             M710 Model
+ *      on port | GMDSS     | Marine    | General
+ *      =========================================
+ *      CWK,SEND|           |           |
+ *      MOD,AF  |           | ACC1      | ACC1
+ *      SCAN,ALC|           |           |
+ *      14V,GND |           |           |
+ *      -----------------------------------------
+ *      8V,SEND |           |           |
+ *      ALC,RLC | ACC       | ACC2      | ACC2
+ *      14V,GND |           |           |
+ *      -----------------------------------------
+ *      MOD,AF  |           |           |
+ *      NMEA I/O| DSC       |           |
+ *      GND     |           |           |
+ *      -----------------------------------------
+ *      MOD,AF  |           |           |
+ *      SEND,GND| MOD/AF    |           |
+ *      -----------------------------------------
+ *      MOD,AF  |           |           |
+ *      NMEA I/O|           | REMOTE    | REMOTE
+ *      GND     |           |           |
+ *      -----------------------------------------
+ *      Notes:
+ *      1. The signal order on the ports is not correct, to highlight signal
+ *         similarity
+ *      2. Some of the MOD and AF signals in some ports are differential,
+ *         omitted for clarity
+ *      3. The signal listed as SEND for the MOD/AF port is actually called
+ *         NSEN. I changed some signal names to highlight their common function
+ *         where they have the same function but a different, port-specific
+ *         name.
+ *      4. I rounded 13.8V to 14V to fit in the table.
+ * 
+ *  I found that:
+ *    - when I used the MOD/AF:SEND line to put the radio in to TX, the
+ *      AutoTune function operated. 
+ *    - when I used the DSC NMEA Interface (command TRX,TX) to put the radio
+ *      in to TX,
+ *      -   the MOD/AF port's MOD signal was not transmitted,
+ *      -   the AutoTune function did not operate
+ *      -   acknowledgements to the commands were received from the radio,
+ *          exactly as described in the NMEA instruction manual.
+ *    - using the Clone pin as the control interface worked to some extent but 
+ *      resulted in all commands sent being echoed back into the controlling PC
+ *      serial port as it is a 1-wire interface. TODO CHECK I also found that there were
+ *      no command acknowledgements from the radio on this interface /CHECK.
+ *    - the radio does not respond to a TUNER,TUNE command until tuning is
+ *      complete. This can take several seconds. This is also stated in the
+ *      NMEA instruction doc.
+ * 
+ *  Later, I found that the TRX,TX method of transmitting selects the DSC Mod
+ *  signal for transmission. I also found the NMEA manual says that the TRX
+ *  command "uses modulation port on NMEA port". The acknowledgement
+ *  description for the TX argument says "Transmit mode including tuning
+ *  antenna tuner". As above, I found that the AutoTune did not work with the
+ *  TRX,TX command.
+ *  
+ *  I reviewed the existing icm710 backend and found that:
+ *  - it is designed througout to cope without any responses from the radio,
+ *  - it relies on the AutoTune function operating correctly, as it uses only
+ *    TUNER,ON and TUNER,OFF, which enable and disable AutoTune, provided
+ *    AutoTune is enabled through "set mode".
+ *  - its software is completely decoupled from the icmarine backend and
+ *    implements all the functions of icmarine, with the exception of the
+ *    icmarine_transaction function.
+ * 
+ *  The reliance on Autotune suggests that this backend model is designed to
+ *  work with a SEND electrical signal.
+ * 
+ *  I did not wish to generate an analogue SEND signal or to connect to the
+ *  MOD/AF port as well as the NMEA port, which is required for CAT commands.
+ *  The NMEA port also provides complete responses, as described by the
+ *  instruction manual and so a new interface could make use of them.
+ * 
+ *  I decided to write new versions of a small number of functions that relate
+ *  to transmit frequency so that I could automate the sending of TUNER,TUNE
+ *  commands whenever a new tx frequency is sent to the radio. I keep a record
+ *  of the last frequency tuned so that un-neccessary TUNEs can be avoided.
+ *  During the TUNE, I temporarily install a 10s timeout.
+ * 
+ *  As the existing icm710 backend model was already almost completely
+ *  decoupled from the icmarine code, I removed the icmarine.h inclusion and
+ *  declared the single needed function in its place. This code is now
+ *  completely separate, except for initialisation by icmarine.
+ * 
+ *  I also added the full set of NMEA commands in the instruction manual to the
+ *  icmarine backend. The existing consumers of this backend should be
+ *  un-affected by the new capabilities/functions as their function flags have
+ *  not been changed.
+ *      
+ * 
  */
 
 #ifdef HAVE_CONFIG_H
