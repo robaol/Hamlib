@@ -290,7 +290,7 @@ const struct rig_caps icm710itu_caps =
         },
         /* mode/filter list, remember: order matters! */
         .filters = {
-            {RIG_MODE_SSB | RIG_MODE_CW | RIG_MODE_RTTY, kHz(2.3)},
+            {RIG_MODE_SSB | RIG_MODE_CW | RIG_MODE_RTTY | RIG_MODE_PKTUSB, kHz(2.3)},
             {RIG_MODE_AM, kHz(14)},
             RIG_FLT_END,
         },
@@ -316,6 +316,7 @@ const struct rig_caps icm710itu_caps =
 
         .set_ptt = icmarine_set_ptt,
         .get_ptt = icmarine_get_ptt,
+        .get_dcd = icmarine_get_dcd,
         .vfo_op = icm710itu_vfo_op,
 
         .set_level = icmarine_set_level,
