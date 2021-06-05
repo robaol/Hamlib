@@ -59,5 +59,6 @@ int icm710itu_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
 int icm710itu_set_tx_freq(RIG *rig, vfo_t vfo, freq_t freq);
 int icm710itu_set_split_vfo(RIG *rig, vfo_t rx_vfo, split_t split, vfo_t tx_vfo);
 int icm710itu_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op);
+int icm710itu_set_func(RIG *rig, vfo_t vfo, setting_t func, int status);
 
 #endif /* _ICM710ITU_H */
