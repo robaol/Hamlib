@@ -445,7 +445,7 @@ int icm710itu_set_tx_freq(RIG *rig, vfo_t vfo, freq_t freq)
         if (retval == RIG_OK)
         {
             priv->lastTunedTxfreq = freq;
-        }
+        }        
     }
     return retval;
 }
@@ -484,27 +484,28 @@ int icm710itu_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
     struct icm710itu_priv_data *priv;
     int retval;
     int oldTimeout = rig->state.rigport.timeout;
-    int tuneStatus = -1;
 
     priv = (struct icm710itu_priv_data *)rig->state.priv;
 
     rig->state.rigport.timeout = priv->tuneTimeout;
 
-    retval = icmarine_transaction(rig, CMD_TUNER, "TUNE", NULL);
+    /*
+     * The most natural command is Tuner, Tune but the response is 
+     * Tuner, On or Tuner, Off and so you never get a response that
+     * matches the command, which icmarine_transaction expects. But 
+     * Tuner, On as a command, has the same effect (causes tuning) and so is a 
+     * pragmatic solution...
+     *    retval = icmarine_transaction(rig, CMD_TUNER, "TUNE", NULL);
+     * 
+     * If tuning fails, the response is Tuner, Off which 
+     * icmarine_transaction classifies as RIG_ERJCTED,
+     * which is what I would do if I got Tuner, Off from a get status 
+     * RIG_FUNC_TUNER, so there is no need to test the tuner status separately.
+     * 
+     */
+    retval = icmarine_transaction(rig, CMD_TUNER, "ON", NULL);
 
     rig->state.rigport.timeout = oldTimeout;
 
-    if (retval != RIG_OK)
-    {
-        return retval;
-    }
-
-    retval = icmarine_get_func(rig, vfo, RIG_FUNC_TUNER, &tuneStatus);
-
-    if (retval != RIG_OK)
-    {
-        return retval;
-    }
-
-    return tuneStatus;
+    return retval;
 }
