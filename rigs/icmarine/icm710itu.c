@@ -321,7 +321,7 @@ const struct rig_caps icm710itu_caps =
 
         .set_level = icmarine_set_level,
         .get_level = icmarine_get_level,
-        .set_func = icmarine_set_func,
+        .set_func = icm710itu_set_func,
         .get_func = icmarine_get_func,
         .set_parm = icmarine_set_parm,
         .get_parm = icmarine_get_parm,
@@ -506,6 +506,54 @@ int icm710itu_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op)
     retval = icmarine_transaction(rig, CMD_TUNER, "ON", NULL);
 
     rig->state.rigport.timeout = oldTimeout;
+
+    return retval;
+}
+
+int icm710itu_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
+{
+    int retval;
+
+    rig_debug(RIG_DEBUG_TRACE, "%s:\n", __func__);
+
+    switch (func)
+    {
+    case RIG_FUNC_NB:
+        retval = icmarine_transaction(rig, CMD_NB, status ? "ON" : "OFF", NULL);
+        break;
+
+    case RIG_FUNC_SQL:
+        retval = icmarine_transaction(rig, CMD_SQLC, status ? "ON" : "OFF", NULL);
+        break;
+
+    case RIG_FUNC_TUNER:
+    {
+        struct icm710itu_priv_data *priv;
+        int oldTimeout = rig->state.rigport.timeout;
+
+        priv = (struct icm710itu_priv_data *)rig->state.priv;
+
+        if (status)
+        {
+            rig->state.rigport.timeout = priv->tuneTimeout;
+        }
+
+        retval = icmarine_transaction(rig, CMD_TUNER, status ? "ON" : "OFF", NULL);
+
+        if (status)
+        {
+            rig->state.rigport.timeout = oldTimeout;
+        }
+    }
+    break;
+
+    case RIG_FUNC_MUTE:
+        retval = icmarine_transaction(rig, CMD_SPKR, status ? "ON" : "OFF", NULL);
+        break;
+
+    default:
+        return -RIG_EINVAL;
+    }
 
     return retval;
 }
