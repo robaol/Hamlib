@@ -696,7 +696,7 @@ int icmarine_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
         break;
 
     case RIG_FUNC_MUTE:
-        retval = icmarine_transaction(rig, CMD_SPKR, status ? "ON" : "OFF", NULL);
+        retval = icmarine_transaction(rig, CMD_SPKR, status ? "OFF" : "ON", NULL);
         break;
 
     default:
@@ -728,7 +728,16 @@ int icmarine_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
         break;
 
     case RIG_FUNC_MUTE:
+        /* SPKR ON => MUTE OFF, so need to invert answer */
         retval = icmarine_transaction(rig, CMD_SPKR, NULL, funcbuf);
+        if (strcmp(funcbuf, "ON") == 0)
+        {
+            snprintf(funcbuf, BUFSZ - 1, "%s", "OFF");
+        }
+        else
+        {
+            snprintf(funcbuf, BUFSZ - 1, "%s", "ON");
+        }
         break;
 
    default:
