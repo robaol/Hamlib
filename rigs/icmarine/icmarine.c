@@ -889,7 +889,7 @@ int icmarine_set_parm(RIG *rig, setting_t parm, value_t val)
     {
     case RIG_PARM_BACKLIGHT:
         retval = icmarine_transaction(rig, CMD_DISPDIM,
-                                      val.f > 0.25 ? "ON" : "OFF", NULL);
+                                      val.f > 0.25 ? "OFF" : "ON", NULL);
         break;
     default:
         return -RIG_EINVAL;
@@ -922,7 +922,7 @@ int icmarine_get_parm(RIG *rig, setting_t parm, value_t *val)
             return -RIG_EPROTO;
         }
 
-        val->f = parmbuf[1] == 'N' ? 1.0f : 0.0f;
+        val->f = parmbuf[1] == 'N' ? 0.0f : 1.0f;
         break;
 
     default:
