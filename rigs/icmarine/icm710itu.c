@@ -548,7 +548,7 @@ int icm710itu_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
     break;
 
     case RIG_FUNC_MUTE:
-        retval = icmarine_transaction(rig, CMD_SPKR, status ? "ON" : "OFF", NULL);
+        retval = icmarine_transaction(rig, CMD_SPKR, status ? "OFF" : "ON", NULL);
         break;
 
     default:
