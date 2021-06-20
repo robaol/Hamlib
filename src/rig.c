@@ -4595,12 +4595,12 @@ int HAMLIB_API rig_get_split_vfo(RIG *rig,
         RETURNFUNC(retcode);
     }
 
+#if 0 // why were we doing this?  Shouldn't need to set_vfo to figure out tx_vfo
     if (!caps->set_vfo)
     {
         RETURNFUNC(-RIG_ENAVAIL);
     }
 
-#if 0 // why were we doing this?  Shouldn't need to set_vfo to figure out tx_vfo
     curr_vfo = rig->state.current_vfo;
     retcode = caps->set_vfo(rig, vfo);
 
