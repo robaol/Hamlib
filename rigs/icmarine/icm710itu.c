@@ -453,7 +453,7 @@ int icm710itu_set_tx_freq(RIG *rig, vfo_t vfo, freq_t freq)
 int icm710itu_set_split_vfo(RIG *rig, vfo_t rx_vfo, split_t split, vfo_t tx_vfo)
 {
     struct icm710itu_priv_data *priv;
-    int retval;
+    int retval = RIG_OK;
 
     priv = (struct icm710itu_priv_data *)rig->state.priv;
 
