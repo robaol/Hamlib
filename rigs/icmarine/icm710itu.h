@@ -38,10 +38,12 @@ struct icm710itu_priv_caps {
 };
 #endif
 
-/* The M710 does not support queries */
-/* So we keep a copy of settings in priv to support get functions */
-/* The priv settings only reflect what has been previously set */
-/* So get's will return 0 until the value has been set */
+/* The M710 does support queries. See block comment in icm710itu.c */
+/* But we do need a mechanism to allow TUNING to happen and not
+ * timeout, causing an error. So, we have flags and data to control and
+ * remember tuned frequency and a tuning timeout that we temporarily
+ * install when about to tune.
+ */
 struct icm710itu_priv_data {
     unsigned char remote_id;  /* the remote equipment's ID */
     split_t split; /* current split mode */
