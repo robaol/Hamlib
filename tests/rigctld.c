@@ -76,6 +76,7 @@
 #include "iofunc.h"
 #include "serial.h"
 #include "sprintflst.h"
+#include "network.h"
 
 #include "rigctl_parse.h"
 
@@ -85,7 +86,7 @@
  *      keep up to date SHORT_OPTIONS, usage()'s output and man page. thanks.
  * TODO: add an option to read from a file
  */
-#define SHORT_OPTIONS "m:r:p:d:P:D:s:c:T:t:C:W:x:z:lLuovhVZ"
+#define SHORT_OPTIONS "m:r:p:d:P:D:s:c:T:t:C:W:x:z:lLuovhVZM"
 static struct option long_options[] =
 {
     {"model",           1, 0, 'm'},
@@ -109,6 +110,7 @@ static struct option long_options[] =
     {"twiddle_timeout", 1, 0, 'W'},
     {"uplink",          1, 0, 'x'},
     {"debug-time-stamps", 0, 0, 'Z'},
+    {"multicast-addr",  1, 0, 'M'},
     {0, 0, 0, 0}
 };
 
@@ -142,10 +144,13 @@ static int volatile ctrl_c;
 
 const char *portno = "4532";
 const char *src_addr = NULL; /* INADDR_ANY */
+const char *multicast_addr = "0.0.0.0";
 
 #define MAXCONFLEN 1024
 
-static void sync_callback(int lock)
+extern void sync_callback(int lock);
+#if 0
+void sync_callback(int lock)
 {
 #ifdef HAVE_PTHREAD
     static pthread_mutex_t client_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -163,6 +168,7 @@ static void sync_callback(int lock)
 
 #endif
 }
+#endif
 
 #ifdef WIN32
 static BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
@@ -261,6 +267,11 @@ int main(int argc, char *argv[])
 #endif
     struct handle_data *arg;
     int vfo_mode = 0; /* vfo_mode=0 means target VFO is current VFO */
+    int i;
+
+    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d) Startup:", __FILE__, __LINE__);
+    for(i=0;i<argc;++i) rig_debug(RIG_DEBUG_VERBOSE, " %s", argv[i]);
+    rig_debug(RIG_DEBUG_VERBOSE, "%s", "\n");
 
     while (1)
     {
@@ -286,7 +297,7 @@ int main(int argc, char *argv[])
             exit(0);
 
         case 'V':
-            printf("rigctl %s\nLast commit was %s\n", hamlib_version, HAMLIBDATETIME);
+            printf("rigctl %s\n", hamlib_version2);
             exit(0);
 
         case 'm':
@@ -496,7 +507,7 @@ int main(int argc, char *argv[])
 
         case 'o':
             vfo_mode++;
-            rig_debug(RIG_DEBUG_ERR, "%s: #0 vfo_mode=%d\n", __func__, vfo_mode);
+            //rig_debug(RIG_DEBUG_ERR, "%s: #0 vfo_mode=%d\n", __func__, vfo_mode);
             break;
 
         case 'v':
@@ -542,11 +553,23 @@ int main(int argc, char *argv[])
             rig_set_debug_time_stamp(1);
             break;
 
+        case 'M':
+            if (!optarg)
+            {
+                usage();    /* wrong arg count */
+                exit(1);
+            }
+
+            multicast_addr = optarg;
+            break;
+
         default:
             usage();    /* unknown option? */
             exit(1);
         }
     }
+
+#if 0
 
     if (!vfo_mode)
     {
@@ -554,10 +577,11 @@ int main(int argc, char *argv[])
         printf("rigctl and netrigctl will automatically detect vfo mode\n");
     }
 
+#endif
+
     rig_set_debug(verbose);
 
-    rig_debug(RIG_DEBUG_VERBOSE, "rigctld %s\nLast commit was %s\n", hamlib_version,
-              HAMLIBDATETIME);
+    rig_debug(RIG_DEBUG_VERBOSE, "rigctld %s\n", hamlib_version2);
     rig_debug(RIG_DEBUG_VERBOSE, "%s",
               "Report bugs to <hamlib-developer@lists.sourceforge.net>\n\n");
 
@@ -650,7 +674,8 @@ int main(int argc, char *argv[])
 
     if (retcode != RIG_OK)
     {
-        fprintf(stderr, "rig_open: error = %s \n", rigerror(retcode));
+        fprintf(stderr, "rig_open: error = %s %s %s \n", rigerror(retcode), rig_file,
+                strerror(errno));
         exit(2);
     }
 
@@ -729,6 +754,17 @@ int main(int argc, char *argv[])
     }
 
     saved_result = result;
+
+    enum multicast_item_e items = RIG_MULTICAST_POLL | RIG_MULTICAST_TRANSCEIVE |
+                                  RIG_MULTICAST_SPECTRUM;
+    retcode = network_multicast_server(my_rig, multicast_addr, 4532, items);
+
+    if (retcode != RIG_OK)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: network_multicast_server failed: %s\n", __FILE__,
+                  rigerror(retcode));
+        // we will consider this non-fatal for now
+    }
 
     do
     {
@@ -884,11 +920,21 @@ int main(int argc, char *argv[])
         timeout.tv_usec = 0;
         retcode = select(sock_listen + 1, &set, NULL, NULL, &timeout);
 
-        if (-1 == retcode)
+        if (retcode == -1)
         {
-            rig_debug(RIG_DEBUG_ERR, "%s: select\n", __func__);
+            int errno_stored = errno;
+            rig_debug(RIG_DEBUG_ERR, "%s: select() failed: %s\n", __func__,
+                      strerror(errno_stored));
+
+            // TODO: FIXME: Why does this select() return EINTR after any command when set_trn RIG is enabled?
+            if (errno == EINTR)
+            {
+                rig_debug(RIG_DEBUG_VERBOSE, "%s: ignoring interrupted system call\n",
+                          __func__);
+                retcode = 0;
+            }
         }
-        else if (!retcode)
+        else if (retcode == 0)
         {
             if (ctrl_c)
             {
@@ -1013,11 +1059,14 @@ void *handle_socket(void *arg)
     int ext_resp = 0;
     char resp_sep = '\n';
 
+    ENTERFUNC;
+
     fsockin = get_fsockin(handle_data_arg);
 
     if (!fsockin)
     {
-        rig_debug(RIG_DEBUG_ERR, "fdopen(0x%d) in: %s\n", handle_data_arg->sock,
+        rig_debug(RIG_DEBUG_ERR, "%s: fdopen(0x%d) in: %s\n", __func__,
+                  handle_data_arg->sock,
                   strerror(errno));
         goto handle_exit;
     }
@@ -1026,7 +1075,7 @@ void *handle_socket(void *arg)
 
     if (!fsockout)
     {
-        rig_debug(RIG_DEBUG_ERR, "fdopen out: %s\n", strerror(errno));
+        rig_debug(RIG_DEBUG_ERR, "%s: fdopen out: %s\n", __func__, strerror(errno));
         fclose(fsockin);
 
         goto handle_exit;
@@ -1065,31 +1114,36 @@ void *handle_socket(void *arg)
 
 #endif
 
+    int rig_opened = 1;  // our rig is already open
+
     do
     {
-        rig_debug(RIG_DEBUG_TRACE, "%s: doing rigctl_parse vfo_mode=%d\n", __func__,
-                  handle_data_arg->vfo_mode);
-        retcode = rigctl_parse(handle_data_arg->rig, fsockin, fsockout, NULL, 0,
-                               sync_callback,
-                               1, 0, &handle_data_arg->vfo_mode, send_cmd_term, &ext_resp, &resp_sep);
-
-        if (retcode != 0) { rig_debug(RIG_DEBUG_ERR, "%s: rigctl_parse retcode=%d\n", __func__, retcode); }
-
-
-#if 0 // disabled -- don't think we need this
-
-        // see https://github.com/Hamlib/Hamlib/issues/516
-        if (retcode == -1)
+        if (!rig_opened)
         {
-            //sleep(1); // probably don't need this delay
-            //continue;
+            retcode = rig_open(my_rig);
+            rig_opened = retcode == RIG_OK ? 1 : 0;
+            rig_debug(RIG_DEBUG_ERR, "%s: rig_open reopened retcode=%d\n", __func__,
+                      retcode);
         }
 
-#endif
+        if (rig_opened) // only do this if rig is open
+        {
+            rig_debug(RIG_DEBUG_TRACE, "%s: doing rigctl_parse vfo_mode=%d\n", __func__,
+                      handle_data_arg->vfo_mode);
+            retcode = rigctl_parse(handle_data_arg->rig, fsockin, fsockout, NULL, 0,
+                                   sync_callback,
+                                   1, 0, &handle_data_arg->vfo_mode, send_cmd_term, &ext_resp, &resp_sep);
+
+            if (retcode != 0) { rig_debug(RIG_DEBUG_VERBOSE, "%s: rigctl_parse retcode=%d\n", __func__, retcode); }
+        }
+        else
+        {
+            retcode = -RIG_EIO;
+        }
 
         // if we get a hard error we try to reopen the rig again
         // this should cover short dropouts that can occur
-        if (retcode == -RIG_EIO || retcode == 2)
+        if (retcode < 0 && !RIG_IS_SOFT_ERRCODE(-retcode))
         {
             int retry = 3;
             rig_debug(RIG_DEBUG_ERR, "%s: i/o error\n", __func__)
@@ -1100,42 +1154,14 @@ void *handle_socket(void *arg)
                 hl_usleep(1000 * 1000);
                 rig_debug(RIG_DEBUG_ERR, "%s: rig_close retcode=%d\n", __func__, retcode);
                 retcode = rig_open(my_rig);
-                rig_debug(RIG_DEBUG_ERR, "%s: rig_open retcode=%d\n", __func__, retcode);
+                rig_opened = retcode == RIG_OK ? 1 : 0;
+                rig_debug(RIG_DEBUG_ERR, "%s: rig_open retcode=%d, opened=%d\n", __func__,
+                          retcode, rig_opened);
             }
             while (retry-- > 0 && retcode != RIG_OK);
-
         }
-
-
-#if 0
-
-        if (ferror(fsockin) || ferror(fsockout) || retcode == 2)
-        {
-            if (ferror(fsockout)) { fsockout = get_fsockout(handle_data_arg); }
-
-            rig_debug(RIG_DEBUG_ERR, "%s: socket error in=%d, out=%d\n", __func__,
-                      ferror(fsockin), ferror(fsockout));
-            // if we get an error from the rig we'll try to repoen
-            // that may fix things when COM ports drop and such
-            int retry = 4;
-
-            if (retcode == 2)
-            {
-                do
-                {
-                    retcode = rig_close(my_rig);
-                    hl_usleep(1000 * 1000);
-                    rig_debug(RIG_DEBUG_ERR, "%s: rig_close retcode=%d\n", __func__, retcode);
-                    retcode = rig_open(my_rig);
-                    rig_debug(RIG_DEBUG_ERR, "%s: rig_open retcode=%d\n", __func__, retcode);
-                }
-                while (retry-- > 0 && retcode != RIG_OK);
-            }
-        }
-
-#endif
     }
-    while (retcode == 0 || retcode == 2 || retcode == -RIG_ENAVAIL);
+    while (retcode == RIG_OK || RIG_IS_SOFT_ERRCODE(-retcode));
 
 #ifdef HAVE_PTHREAD
 #if 0
@@ -1239,9 +1265,10 @@ void usage(void)
         "  -o, --vfo                     do not default to VFO_CURR, require extra vfo arg\n"
         "  -v, --verbose                 set verbose mode, cumulative (-v to -vvvvv)\n"
         "  -W, --twiddle_timeout         timeout after detecting vfo manual change\n"
-        "  -W, --twiddle_rit             suppress VFOB getfreq so RIT can be twiddled"
+        "  -W, --twiddle_rit             suppress VFOB getfreq so RIT can be twiddled\n"
         "  -x, --uplink                  set uplink get_freq ignore, 1=Sub, 2=Main\n"
         "  -Z, --debug-time-stamps       enable time stamps for debug messages\n"
+        "  -M, --multicast-addr=addr     set multicast addr, default 0.0.0.0 (off), recommend 224.0.1.1\n"
         "  -h, --help                    display this help and exit\n"
         "  -V, --version                 output version information and exit\n\n",
         portno);

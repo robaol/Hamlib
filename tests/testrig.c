@@ -15,7 +15,7 @@
 #  include "config.h"
 #endif
 
-#define SERIAL_PORT "/dev/ttyUSB0"
+#define SERIAL_PORT "/dev/pts/2"
 
 
 int main(int argc, char *argv[])
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
         exit(1); /* whoops! something went wrong (mem alloc?) */
     }
 
-    strncpy(my_rig->state.rigport.pathname, SERIAL_PORT, HAMLIB_FILPATHLEN - 1);
+    //strncpy(my_rig->state.rigport.pathname, SERIAL_PORT, HAMLIB_FILPATHLEN - 1);
 
     retcode = rig_open(my_rig);
 
@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
         exit(2);
     }
 
-    printf("Port %s opened ok\n", SERIAL_PORT);
+//    printf("Port %s opened ok\n", SERIAL_PORT);
 
     /*
      * Below are examples of set/get routines.
@@ -136,6 +136,14 @@ int main(int argc, char *argv[])
            rig_strrmode(rmode),
            width / 1000.0);
 
+    if (freq != 29620000)
+    {
+        printf("rig_set_freq: error exptect %.0f got %.0f\n", 296290000.0, freq);
+    }
+    if (rmode != RIG_MODE_FM || width != rig_passband_narrow(my_rig, RIG_MODE_FM))
+    {
+        printf("rig_set_mode: error expected FM/%d, got %s/%d\n", (int)rig_passband_narrow(my_rig, RIG_MODE_FM), rig_strrmode(rmode), (int)width); 
+    }
     sleep(1);       /* so you can see it -- FS */
 
     /* 15m USB */
@@ -487,6 +495,13 @@ int main(int argc, char *argv[])
     rig_cleanup(my_rig); /* if you care about memory */
 
     printf("port %s closed ok \n", SERIAL_PORT);
+
+    for (unsigned long i = 1; i < 0x80000000; i = i << 1)
+    {
+        const char *vfostr = rig_strvfo(i);
+
+        if (strlen(vfostr) > 0) { printf("0x%08lx=%s\n", i, vfostr); }
+    }
 
     return 0;
 }

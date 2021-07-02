@@ -183,7 +183,7 @@ const struct rig_caps k3_caps =
     RIG_MODEL(RIG_MODEL_K3),
     .model_name =       "K3",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".10",
+    .version =      BACKEND_VER ".14",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -220,7 +220,7 @@ const struct rig_caps k3_caps =
     .max_xit =      Hz(9990),
     .max_ifshift =      Hz(0),
     .vfo_ops =      K3_VFO_OP,
-    .targetable_vfo =   RIG_TARGETABLE_FREQ,
+    .targetable_vfo =   RIG_TARGETABLE_FREQ|RIG_TARGETABLE_MODE,
     .transceive =       RIG_TRN_RIG,
     .bank_qty =     0,
     .chan_desc_sz =     0,
@@ -334,7 +334,7 @@ const struct rig_caps k3s_caps =
     RIG_MODEL(RIG_MODEL_K3S),
     .model_name =       "K3S",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".9",
+    .version =      BACKEND_VER ".12",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -370,7 +370,7 @@ const struct rig_caps k3s_caps =
     .max_xit =      Hz(9990),
     .max_ifshift =      Hz(0),
     .vfo_ops =      K3_VFO_OP,
-    .targetable_vfo =   RIG_TARGETABLE_FREQ,
+    .targetable_vfo =   RIG_TARGETABLE_FREQ|RIG_TARGETABLE_MODE,
     .transceive =       RIG_TRN_RIG,
     .bank_qty =     0,
     .chan_desc_sz =     0,
@@ -484,7 +484,7 @@ const struct rig_caps k4_caps =
     RIG_MODEL(RIG_MODEL_K4),
     .model_name =       "K4",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".9",
+    .version =      BACKEND_VER ".12",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -520,7 +520,7 @@ const struct rig_caps k4_caps =
     .max_xit =      Hz(9990),
     .max_ifshift =      Hz(0),
     .vfo_ops =      K3_VFO_OP,
-    .targetable_vfo =   RIG_TARGETABLE_FREQ,
+    .targetable_vfo =   RIG_TARGETABLE_FREQ|RIG_TARGETABLE_MODE,
     .transceive =       RIG_TRN_RIG,
     .bank_qty =     0,
     .chan_desc_sz =     0,
@@ -633,7 +633,7 @@ const struct rig_caps kx3_caps =
     RIG_MODEL(RIG_MODEL_KX3),
     .model_name =       "KX3",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".9",
+    .version =      BACKEND_VER ".12",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -669,7 +669,7 @@ const struct rig_caps kx3_caps =
     .max_xit =      Hz(9990),
     .max_ifshift =      Hz(0),
     .vfo_ops =      K3_VFO_OP,
-    .targetable_vfo =   RIG_TARGETABLE_FREQ,
+    .targetable_vfo =   RIG_TARGETABLE_FREQ|RIG_TARGETABLE_MODE,
     .transceive =       RIG_TRN_RIG,
     .bank_qty =     0,
     .chan_desc_sz =     0,
@@ -782,7 +782,7 @@ const struct rig_caps kx2_caps =
     RIG_MODEL(RIG_MODEL_KX2),
     .model_name =       "KX2",
     .mfg_name =     "Elecraft",
-    .version =      BACKEND_VER ".9",
+    .version =      BACKEND_VER ".12",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -818,7 +818,7 @@ const struct rig_caps kx2_caps =
     .max_xit =      Hz(9990),
     .max_ifshift =      Hz(0),
     .vfo_ops =      K3_VFO_OP,
-    .targetable_vfo =   RIG_TARGETABLE_FREQ,
+    .targetable_vfo =   RIG_TARGETABLE_FREQ|RIG_TARGETABLE_MODE,
     .transceive =       RIG_TRN_RIG,
     .bank_qty =     0,
     .chan_desc_sz =     0,
@@ -978,11 +978,11 @@ int k3_get_mode(RIG *rig, vfo_t vfo, rmode_t *mode, pbwidth_t *width)
         {
         case K3_MODE_DATA_A:
         case K3_MODE_PSK_D:
-            *mode = RIG_MODE_PKTLSB;
+            *mode = RIG_MODE_PKTUSB;
             break;
 
         case K3_MODE_AFSK_A:
-            *mode = RIG_MODE_PKTUSB;
+            *mode = RIG_MODE_PKTLSB;
             break;
 
         default:
@@ -1098,17 +1098,29 @@ int k3_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     {
         vfo = rig->state.current_vfo;
     }
+    rmode_t tmode;
+    pbwidth_t twidth;
+    err = k3_get_mode(rig,vfo,&tmode,&twidth);
+    if (err == RIG_OK && tmode == mode && width == RIG_PASSBAND_NOCHANGE)
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s(%d): mode/width no change, skipping\n", __FILE__, __LINE__);
+        return RIG_OK;
+    }
+    else
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s(%d): changing mode=%s, oldmode=%s, width=%ld, oldwidth=%ld\n", __FILE__, __LINE__, rig_strrmode(tmode), rig_strrmode(mode), twidth, width);
+    }
 
     switch (mode)
     {
-        case RIG_MODE_PKTLSB:
-        mode = RIG_MODE_RTTY; // in "DT0" Subband RIG_MODE_RTTYR = USB and RIG_MODE_RTTY = LSB
+    case RIG_MODE_PKTLSB:
+        mode = RIG_MODE_RTTYR; // in "DT0" Subband RIG_MODE_RTTYR = USB and RIG_MODE_RTTY = LSB
         snprintf(cmd_m, sizeof(cmd_m),
                  "DT0"); /* DATA A mode - DATA (REV) on LSB optimized for HF Packet, VFO dial is suppressed carrier QRG */
         break;
 
     case RIG_MODE_PKTUSB:
-        mode = RIG_MODE_RTTYR; // in "DT0" Subband RIG_MODE_RTTYR = USB and RIG_MODE_RTTY = LSB
+        mode = RIG_MODE_RTTY; // in "DT0" Subband RIG_MODE_RTTYR = USB and RIG_MODE_RTTY = LSB
         snprintf(cmd_m, sizeof(cmd_m),
                  "DT0"); /* DATA A mode - DATA on USB general, VFO dial is suppressed carrier QRG */
         break;
@@ -1116,13 +1128,13 @@ int k3_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     case RIG_MODE_RTTY:
         mode = RIG_MODE_RTTY; // in "DT1" Subband RIG_MODE_RTTY = LSB and RIG_MODE_RTTYR = USB
         snprintf(cmd_m, sizeof(cmd_m),
-                 "DT1"); /* FSK D mode - direct FSK on LSB optimized for RTTY, VFO dial is MARK */
+                 "DT2"); /* FSK D mode - direct FSK on LSB optimized for RTTY, VFO dial is MARK */
         break;
 
     case RIG_MODE_RTTYR:
         mode = RIG_MODE_RTTYR; // in "DT2" Subband RIG_MODE_RTTY = LSB and RIG_MODE_RTTYR = USB
         snprintf(cmd_m, sizeof(cmd_m),
-                 "DT2"); /* FSK D mode - direct FSK keying, LSB is "normal", VFO dial is MARK */
+                 "DT1"); /* FSK D mode - direct FSK keying, LSB is "normal", VFO dial is MARK */
         break;
 
     case RIG_MODE_PSK:
@@ -1462,30 +1474,30 @@ int k3_set_split_mode(RIG *rig, vfo_t vfo, rmode_t tx_mode, pbwidth_t tx_width)
     switch (tx_mode)
     {
     case RIG_MODE_PKTLSB:
-        tx_mode = RIG_MODE_RTTY; // in "DT0" Subband RIG_MODE_RTTY = USB and RIG_MODE_RTTYR = LSB
+        tx_mode = RIG_MODE_RTTY; // "DT0" RIG_MODE_RTTY = LSB
         snprintf(cmd_m, sizeof(cmd_m),
-                 "DT0"); /* DATA A mode - DATA (REV) on LSB optimized for HF Packet, VFO dial is suppressed carrier QRG */
+                 "DT0"); /* DATA A mode - DATA-R LSB, suppressed carrier */
         break;
 
     case RIG_MODE_PKTUSB:
-        tx_mode = RIG_MODE_RTTYR; // in "DT0" Subband RIG_MODE_RTTY = USB and RIG_MODE_RTTYR = LSB
+        tx_mode = RIG_MODE_RTTYR; // "DT0" RIG_MODE_RTTYR = USB
         snprintf(cmd_m, sizeof(cmd_m),
-                 "DT0"); /* DATA A mode - AFSK on USB general, VFO dial is suppressed carrier QRG */
+                 "DT0"); /* DATA A mode - DATA on USB, suppressed carrier */
         break;
 
     case RIG_MODE_RTTY:
-        tx_mode = RIG_MODE_RTTY; // in "DT1" Subband RIG_MODE_RTTY = LSB and RIG_MODE_RTTYR = USB
+        tx_mode = RIG_MODE_RTTY; // DT1" RIG_MODE_RTTY = LSB and RIG_MODE_RTTYR = USB
         snprintf(cmd_m, sizeof(cmd_m),
                  "DT1"); /* FSK D mode - direct FSK on LSB optimized for RTTY, VFO dial is MARK */
         break;
 
     case RIG_MODE_RTTYR:
-        tx_mode = RIG_MODE_RTTYR; // in "DT2" Subband RIG_MODE_RTTY = LSB and RIG_MODE_RTTYR = USB
+        tx_mode = RIG_MODE_RTTYR; // "DT2" RIG_MODE_RTTY = USB and RIG_MODE_RTTYR = USB
         snprintf(cmd_m, sizeof(cmd_m),
-                 "DT2"); /* FSK D mode - direct FSK keying, LSB is "normal", VFO dial is MARK */
+                 "DT2"); /* FSK D mode - direct FSK on USB optimized for RTTY, VFO dial is MARK */
         break;
 
-   case RIG_MODE_PSK:
+    case RIG_MODE_PSK:
         tx_mode = RIG_MODE_PSK;
         snprintf(cmd_m, sizeof(cmd_m),
                  "DT3"); /* PSK D Mode - direct PSK keying, USB is "normal", VFO dial is MARK */

@@ -580,9 +580,10 @@ int flex6k_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
 {
     const char *ptt_cmd;
     int err;
-    char response[16];
+    char response[16] = "";
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
+
 
     if (!ptt)
     {
@@ -606,7 +607,7 @@ int flex6k_get_ptt(RIG *rig, vfo_t vfo, ptt_t *ptt)
 int flex6k_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
 {
     const char *ptt_cmd;
-    char response[16];
+    char response[16] = "";
     int err;
     int retry = 3;
 
@@ -630,6 +631,7 @@ int flex6k_set_ptt(RIG *rig, vfo_t vfo, ptt_t ptt)
         if (ptt_cmd[4] != response[4])
         {
             rig_debug(RIG_DEBUG_ERR, "%s: %s != %s\n", __func__, ptt_cmd, response);
+            hl_usleep(20*1000); // takes a bit to do PTT off
         }
     }
     while (ptt_cmd[4] != response[4] && --retry);
@@ -877,6 +879,7 @@ int powersdr_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
     case RIG_LEVEL_AF:
         n = sscanf(lvlbuf, "ZZAG%f", &val->f);
+
         if (n != 1)
         {
             rig_debug(RIG_DEBUG_ERR, "%s: Error parsing value from lvlbuf='%s'\n",
@@ -884,6 +887,7 @@ int powersdr_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             val->f = 0;
             return -RIG_EPROTO;
         }
+
         val->f /= 100.0;
         break;
 
@@ -1079,7 +1083,7 @@ const struct rig_caps f6k_caps =
     RIG_MODEL(RIG_MODEL_F6K),
     .model_name =       "6xxx",
     .mfg_name =     "FlexRadio",
-    .version =      "20201227.0",
+    .version =      "20210527.0",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -1203,7 +1207,7 @@ const struct rig_caps powersdr_caps =
     RIG_MODEL(RIG_MODEL_POWERSDR),
     .model_name =       "PowerSDR/Thetis",
     .mfg_name =     "FlexRadio/ANAN",
-    .version =      "20201231.0",
+    .version =      "20210605.0",
     .copyright =        "LGPL",
     .status =       RIG_STATUS_STABLE,
     .rig_type =     RIG_TYPE_TRANSCEIVER,
@@ -1217,7 +1221,7 @@ const struct rig_caps powersdr_caps =
     .serial_parity =  RIG_PARITY_NONE,
     .serial_handshake =  RIG_HANDSHAKE_NONE,
     .write_delay =  0,
-    .post_write_delay = 20,
+    .post_write_delay = 0,
     // The combination of timeout and retry is important
     // We need at least 3 seconds to do profile switches
     // Hitting the timeout is OK as long as we retry

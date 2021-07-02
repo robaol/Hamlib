@@ -110,6 +110,10 @@ extern HAMLIB_EXPORT(vfo_t) vfo_fixup(RIG *rig, vfo_t vfo);
 
 extern HAMLIB_EXPORT(int) parse_hoststr(char *host, char hoststr[256], char port[6]);
 
+extern HAMLIB_EXPORT(uint32_t) CRC32_function(uint8_t *buf, uint32_t len);
+
+extern char *date_strget(char *buf, int buflen);
+
 #ifdef PRId64
 /** \brief printf(3) format to be used for long long (64bits) type */
 #  define PRIll PRId64
@@ -150,18 +154,24 @@ void errmsg(int err, char *s, const char *func, const char *file, int line);
                         return (rctmp); \
                        } while(0)
 
-#if 0 // 5.0
-    elapsed_ms(&rig->state.cache.time_freqMainC, HAMLIB_ELAPSED_INVALIDATE);
-#endif
 #define CACHE_RESET {\
-    elapsed_ms(&rig->state.cache.time_freq, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_freqCurr, HAMLIB_ELAPSED_INVALIDATE);\
     elapsed_ms(&rig->state.cache.time_freqMainA, HAMLIB_ELAPSED_INVALIDATE);\
     elapsed_ms(&rig->state.cache.time_freqMainB, HAMLIB_ELAPSED_INVALIDATE);\
     elapsed_ms(&rig->state.cache.time_freqSubA, HAMLIB_ELAPSED_INVALIDATE);\
     elapsed_ms(&rig->state.cache.time_freqSubB, HAMLIB_ELAPSED_INVALIDATE);\
     elapsed_ms(&rig->state.cache.time_vfo, HAMLIB_ELAPSED_INVALIDATE);\
-    elapsed_ms(&rig->state.cache.time_mode, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_modeMainA, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_modeMainB, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_modeMainC, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_modeSubA, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_modeSubB, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_modeSubC, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_widthMainA, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_widthMainB, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_widthMainC, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_widthSubA, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_widthSubB, HAMLIB_ELAPSED_INVALIDATE);\
+    elapsed_ms(&rig->state.cache.time_widthSubC, HAMLIB_ELAPSED_INVALIDATE);\
     elapsed_ms(&rig->state.cache.time_ptt, HAMLIB_ELAPSED_INVALIDATE);\
     elapsed_ms(&rig->state.cache.time_split, HAMLIB_ELAPSED_INVALIDATE);\
      }

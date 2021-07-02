@@ -41,7 +41,7 @@
 
 #define IC7100_OTHER_TX_MODES ((IC7100_MODES) & ~(RIG_MODE_AM|RIG_MODE_PKTAM))
 
-#define IC7100_VFO_ALL (RIG_VFO_A|RIG_VFO_B|RIG_VFO_MAIN|RIG_VFO_SUB|RIG_VFO_MEM)
+#define IC7100_VFO_ALL (RIG_VFO_A|RIG_VFO_B|RIG_VFO_MEM)
 
 #define IC7100_SCAN_OPS (RIG_SCAN_VFO|RIG_SCAN_MEM|RIG_SCAN_SLCT|RIG_SCAN_PRIO)
 
@@ -61,7 +61,6 @@
                             RIG_FUNC_VOX| \
                             RIG_FUNC_FBKIN| \
                             RIG_FUNC_AFC| \
-                            RIG_FUNC_SATMODE| \
                             RIG_FUNC_VSC| \
                             RIG_FUNC_MN| \
                             RIG_FUNC_LOCK| \
@@ -208,7 +207,7 @@ const struct rig_caps ic7100_caps =
     RIG_MODEL(RIG_MODEL_IC7100),
     .model_name = "IC-7100",
     .mfg_name =  "Icom",
-    .version =  BACKEND_VER ".0",
+    .version =  BACKEND_VER ".1",
     .copyright =  "LGPL",
     .status =  RIG_STATUS_STABLE,
     .rig_type =  RIG_TYPE_TRANSCEIVER,
@@ -245,11 +244,13 @@ const struct rig_caps ic7100_caps =
     .parm_gran =  {},
     .ctcss_list =  common_ctcss_list,
     .dcs_list =  common_dcs_list,
-    .preamp =   {20, RIG_DBLST_END, },
+    .preamp =   { 1, 2, RIG_DBLST_END, },
     .attenuator =   {20, RIG_DBLST_END, },
     .max_rit =  kHz(9.999),
     .max_xit =  kHz(9.999),
     .max_ifshift =  Hz(0),
+    .agc_level_count = 3,
+    .agc_levels = { RIG_AGC_FAST, RIG_AGC_MEDIUM, RIG_AGC_SLOW },
     .targetable_vfo =  0,
     .vfo_ops =  IC7100_VFO_OPS,
     .scan_ops =  IC7100_SCAN_OPS,

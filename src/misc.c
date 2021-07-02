@@ -351,6 +351,7 @@ int HAMLIB_API sprintf_freq(char *str, int nlen, freq_t freq)
 {
     double f;
     char *hz;
+    int decplaces = 10;
 
     // too verbose
     //rig_debug(RIG_DEBUG_VERBOSE, "%s called\n", __func__);
@@ -364,19 +365,22 @@ int HAMLIB_API sprintf_freq(char *str, int nlen, freq_t freq)
     {
         hz = "MHz";
         f = (double)freq / MHz(1);
+        decplaces = 7;
     }
     else if (llabs(freq) >= kHz(1))
     {
         hz = "kHz";
         f = (double)freq / kHz(1);
+        decplaces = 4;
     }
     else
     {
         hz = "Hz";
         f = (double)freq;
+        decplaces = 1;
     }
 
-    return sprintf(str, "%g %s", f, hz);
+    return sprintf(str, "%.*f %s", decplaces, f, hz);
 }
 
 
@@ -566,9 +570,11 @@ static struct
     { RIG_VFO_MAIN, "Main" },
     { RIG_VFO_MAIN_A, "MainA" },
     { RIG_VFO_MAIN_B, "MainB" },
+    { RIG_VFO_MAIN_C, "MainC" },
     { RIG_VFO_SUB, "Sub" },
     { RIG_VFO_SUB_A, "SubA" },
     { RIG_VFO_SUB_B, "SubB" },
+    { RIG_VFO_SUB_C, "SubC" },
     { RIG_VFO_NONE, "None" },
     { 0xffffff, "" },
 };
@@ -673,6 +679,9 @@ static struct
     { RIG_FUNC_DIVERSITY, "DIVERSITY"},
     { RIG_FUNC_CSQL, "CSQL" },
     { RIG_FUNC_SCEN, "SCEN" },
+    { RIG_FUNC_TRANSCEIVE, "TRANSCEIVE" },
+    { RIG_FUNC_SPECTRUM, "SPECTRUM" },
+    { RIG_FUNC_SPECTRUM_HOLD, "SPECTRUM_HOLD" },
     { RIG_FUNC_NONE, "" },
 };
 
@@ -841,7 +850,6 @@ static struct
     { RIG_LEVEL_SLOPE_HIGH, "SLOPE_HIGH" },
     { RIG_LEVEL_BKIN_DLYMS, "BKIN_DLYMS" },
     { RIG_LEVEL_RAWSTR, "RAWSTR" },
-    { RIG_LEVEL_SQLSTAT, "SQLSTAT" },
     { RIG_LEVEL_SWR, "SWR" },
     { RIG_LEVEL_ALC, "ALC" },
     { RIG_LEVEL_STRENGTH, "STRENGTH" },
@@ -853,6 +861,14 @@ static struct
     { RIG_LEVEL_MONITOR_GAIN, "MONITOR_GAIN" },
     { RIG_LEVEL_NB, "NB" },
     { RIG_LEVEL_RFPOWER_METER_WATTS, "RFPOWER_METER_WATTS" },
+    { RIG_LEVEL_SPECTRUM_MODE, "SPECTRUM_MODE" },
+    { RIG_LEVEL_SPECTRUM_SPAN, "SPECTRUM_SPAN" },
+    { RIG_LEVEL_SPECTRUM_EDGE_LOW, "SPECTRUM_EDGE_LOW" },
+    { RIG_LEVEL_SPECTRUM_EDGE_HIGH, "SPECTRUM_EDGE_HIGH" },
+    { RIG_LEVEL_SPECTRUM_SPEED, "SPECTRUM_SPEED" },
+    { RIG_LEVEL_SPECTRUM_REF, "SPECTRUM_REF" },
+    { RIG_LEVEL_SPECTRUM_AVG, "SPECTRUM_AVG" },
+    { RIG_LEVEL_SPECTRUM_ATT, "SPECTRUM_ATT" },
     { RIG_LEVEL_NONE, "" },
 };
 
@@ -1194,6 +1210,47 @@ const char *HAMLIB_API rot_strparm(setting_t parm)
     return "";
 }
 
+static struct
+{
+    enum agc_level_e level;
+    const char *str;
+} rig_agc_level_str[] =
+{
+    { RIG_AGC_OFF, "OFF" },
+    { RIG_AGC_SUPERFAST, "SUPERFAST" },
+    { RIG_AGC_FAST, "FAST" },
+    { RIG_AGC_SLOW, "SLOW" },
+    { RIG_AGC_USER, "USER" },
+    { RIG_AGC_MEDIUM, "MEDIUM" },
+    { RIG_AGC_AUTO, "AUTO" },
+    { -1, "" },
+};
+
+/**
+ * \brief Convert enum RIG_AGC_... to alpha string
+ * \param mode RIG_AGC_...
+ * \return alpha string
+ */
+const char *HAMLIB_API rig_stragclevel(enum agc_level_e level)
+{
+    int i;
+
+    if (level < 0)
+    {
+        return "";
+    }
+
+    for (i = 0; rig_agc_level_str[i].str[0] != '\0'; i++)
+    {
+        if (level == rig_agc_level_str[i].level)
+        {
+            return rig_agc_level_str[i].str;
+        }
+    }
+
+    return "";
+}
+
 
 static struct
 {
@@ -1464,6 +1521,43 @@ const char *HAMLIB_API rig_strmtype(chan_type_t mtype)
     return "";
 }
 
+static struct
+{
+    enum rig_spectrum_mode_e mode;
+    const char *str;
+} rig_spectrum_mode_str[] =
+{
+    { RIG_SPECTRUM_MODE_CENTER, "CENTER" },
+    { RIG_SPECTRUM_MODE_FIXED, "FIXED" },
+    { RIG_SPECTRUM_MODE_CENTER_SCROLL, "CENTER_SCROLL" },
+    { RIG_SPECTRUM_MODE_FIXED_SCROLL, "FIXED_SCROLL" },
+    { RIG_SPECTRUM_MODE_NONE, "" },
+};
+
+/**
+ * \brief Convert enum RIG_SPECTRUM_MODE_... to alpha string
+ * \param mode RIG_SPECTRUM_MODE_...
+ * \return alpha string
+ */
+const char *HAMLIB_API rig_strspectrummode(enum rig_spectrum_mode_e mode)
+{
+    int i;
+
+    if (mode == RIG_SPECTRUM_MODE_NONE)
+    {
+        return "";
+    }
+
+    for (i = 0; rig_spectrum_mode_str[i].str[0] != '\0'; i++)
+    {
+        if (mode == rig_spectrum_mode_str[i].mode)
+        {
+            return rig_spectrum_mode_str[i].str;
+        }
+    }
+
+    return "";
+}
 
 static long timediff(const struct timeval *tv1, const struct timeval *tv2)
 {
@@ -1570,8 +1664,10 @@ double HAMLIB_API elapsed_ms(struct timespec *start, int option)
         start->tv_sec = start->tv_nsec = 0;
     }
 
-    rig_debug(RIG_DEBUG_TRACE, "%s: start = %ld,%ld\n", __func__,
-              (long)start->tv_sec, (long)start->tv_nsec);
+    stop = *start; // just to suppress some compiler warnings
+
+    //rig_debug(RIG_DEBUG_TRACE, "%s: start = %ld,%ld\n", __func__,
+    //          (long)start->tv_sec, (long)start->tv_nsec);
 
 
     switch (option)
@@ -1588,8 +1684,8 @@ double HAMLIB_API elapsed_ms(struct timespec *start, int option)
 
     case HAMLIB_ELAPSED_SET:
         clock_gettime(CLOCK_REALTIME, start);
-        rig_debug(RIG_DEBUG_TRACE, "%s: after gettime, start = %ld,%ld\n", __func__,
-                  (long)start->tv_sec, (long)start->tv_nsec);
+        //rig_debug(RIG_DEBUG_TRACE, "%s: after gettime, start = %ld,%ld\n", __func__,
+        //          (long)start->tv_sec, (long)start->tv_nsec);
         return 999 * 1000; // so we can tell the difference in debug where we came from
         break;
 
@@ -1603,7 +1699,7 @@ double HAMLIB_API elapsed_ms(struct timespec *start, int option)
     elapsed_msec = ((stop.tv_sec - start->tv_sec) + (stop.tv_nsec / 1e9 -
                     start->tv_nsec / 1e9)) * 1e3;
 
-    rig_debug(RIG_DEBUG_TRACE, "%s: elapsed_msecs=%.0f\n", __func__, elapsed_msec);
+    //rig_debug(RIG_DEBUG_TRACE, "%s: elapsed_msecs=%.0f\n", __func__, elapsed_msec);
 
     if (elapsed_msec < 0 || option == HAMLIB_ELAPSED_INVALIDATE) { return 1000000; }
 
@@ -1625,10 +1721,13 @@ int HAMLIB_API rig_set_cache_timeout_ms(RIG *rig, hamlib_cache_t selection,
     return RIG_OK;
 }
 
-
+// we're mappping our VFO here to work with either VFO A/B rigs or Main/Sub
+// Hamlib uses VFO_A  and VFO_B as TX/RX as of 2021-04-13
+// So we map these to Main/Sub as required
 vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo)
 {
-    rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s\n", __func__, rig_strvfo(vfo));
+    rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s, vfo_curr=%s\n", __func__,
+              rig_strvfo(vfo), rig_strvfo(rig->state.current_vfo));
 
     if (vfo == RIG_VFO_CURR)
     {
@@ -1636,7 +1735,7 @@ vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo)
         return vfo;  // don't modify vfo for RIG_VFO_CURR
     }
 
-    if (vfo == RIG_VFO_RX)
+    if (vfo == RIG_VFO_RX || vfo == RIG_VFO_A)
     {
         vfo = RIG_VFO_A;
 
@@ -1645,7 +1744,7 @@ vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo)
         if (VFO_HAS_MAIN_SUB_A_B_ONLY) { vfo = RIG_VFO_MAIN; }
     }
 
-    if (vfo == RIG_VFO_TX)
+    else if (vfo == RIG_VFO_TX || vfo == RIG_VFO_B)
     {
         int retval;
         split_t split = 0;
@@ -1662,24 +1761,29 @@ vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo)
         }
 
         int satmode = rig->state.cache.satmode;
-        vfo = RIG_VFO_A;
+
+        if (vfo == RIG_VFO_TX) { vfo = RIG_VFO_A; }
 
         if (split) { vfo = RIG_VFO_B; }
 
-        if (VFO_HAS_MAIN_SUB_ONLY && !split && !satmode) { vfo = RIG_VFO_MAIN; }
+        if (VFO_HAS_MAIN_SUB_ONLY && !split && !satmode && vfo != RIG_VFO_B) { vfo = RIG_VFO_MAIN; }
 
-        if (VFO_HAS_MAIN_SUB_ONLY && (split || satmode)) { vfo = RIG_VFO_SUB; }
+        else if (VFO_HAS_MAIN_SUB_ONLY && (split || satmode || vfo == RIG_VFO_B)) { vfo = RIG_VFO_SUB; }
 
-        if (VFO_HAS_MAIN_SUB_A_B_ONLY && split) { vfo = RIG_VFO_B; }
+        else if (VFO_HAS_MAIN_SUB_A_B_ONLY && split) { vfo = RIG_VFO_B; }
 
-        if (VFO_HAS_MAIN_SUB_A_B_ONLY && satmode) { vfo = RIG_VFO_SUB; }
+        else if (VFO_HAS_MAIN_SUB_A_B_ONLY && satmode) { vfo = RIG_VFO_SUB; }
 
         rig_debug(RIG_DEBUG_TRACE,
                   "%s: RIG_VFO_TX changed to %s, split=%d, satmode=%d\n", __func__,
                   rig_strvfo(vfo), split, satmode);
     }
+    else if (vfo == RIG_VFO_B)
 
-    rig_debug(RIG_DEBUG_TRACE, "%s: final vfo=%s\n", __func__, rig_strvfo(vfo));
+    {
+        rig_debug(RIG_DEBUG_TRACE, "%s: final vfo=%s\n", __func__, rig_strvfo(vfo));
+    }
+
     return vfo;
 }
 
@@ -1800,8 +1904,11 @@ int HAMLIB_API parse_hoststr(char *hoststr, char host[256], char port[6])
     return -1;
 }
 
+//K3 was showing stacked command replies so re-enabling this
+//#define RIG_FLUSH_REMOVE
 int HAMLIB_API rig_flush(hamlib_port_t *port)
 {
+#ifndef RIG_FLUSH_REMOVE
     rig_debug(RIG_DEBUG_TRACE, "%s: called for %s device\n", __func__,
               port->type.rig == RIG_PORT_SERIAL ? "serial" : "network");
 
@@ -1819,6 +1926,9 @@ int HAMLIB_API rig_flush(hamlib_port_t *port)
     }
 
     return serial_flush(port); // we must be on serial port
+#else
+    return RIG_OK;
+#endif
 }
 
 
@@ -1873,8 +1983,8 @@ const char *HAMLIB_API rot_strstatus(rot_status_t status)
  * \param RIG* and rig_function_e
  * \return the corresponding function pointer
  */
-void *rig_get_function_ptr(rig_model_t rig_model,
-                           enum rig_function_e rig_function)
+void *HAMLIB_API rig_get_function_ptr(rig_model_t rig_model,
+                                      enum rig_function_e rig_function)
 {
     const struct rig_caps *caps = rig_get_caps(rig_model);
 
@@ -2146,7 +2256,8 @@ void *rig_get_function_ptr(rig_model_t rig_model,
  * \param RIG* and rig_caps_int_e
  * \return the corresponding long value -- -RIG_EINVAL is the only error possible
  */
-long long rig_get_caps_int(rig_model_t rig_model, enum rig_caps_int_e rig_caps)
+long long HAMLIB_API rig_get_caps_int(rig_model_t rig_model,
+                                      enum rig_caps_int_e rig_caps)
 {
     const struct rig_caps *caps = rig_get_caps(rig_model);
 
@@ -2173,8 +2284,8 @@ long long rig_get_caps_int(rig_model_t rig_model, enum rig_caps_int_e rig_caps)
     }
 }
 
-const char *rig_get_caps_cptr(rig_model_t rig_model,
-                              enum rig_caps_cptr_e rig_caps)
+const char *HAMLIB_API rig_get_caps_cptr(rig_model_t rig_model,
+        enum rig_caps_cptr_e rig_caps)
 {
     const struct rig_caps *caps = rig_get_caps(rig_model);
 
@@ -2203,6 +2314,45 @@ void errmsg(int err, char *s, const char *func, const char *file, int line)
 {
     rig_debug(RIG_DEBUG_ERR, "%s(%s:%d): %s: %s\b", __func__, file, line, s,
               rigerror(err));
+}
+
+uint32_t CRC32_function(uint8_t *buf, uint32_t len)
+{
+
+    uint32_t val, crc;
+    uint8_t i;
+
+    crc = 0xFFFFFFFF;
+
+    while (len--)
+    {
+        val = (crc^*buf++) & 0xFF;
+
+        for (i = 0; i < 8; i++)
+        {
+            val = val & 1 ? (val >> 1) ^ 0xEDB88320 : val >> 1;
+        }
+
+        crc = val ^ crc >> 8;
+    }
+
+    return crc ^ 0xFFFFFFFF;
+}
+
+//! @cond Doxygen_Suppress
+char *date_strget(char *buf, int buflen)
+{
+    char tmp[16];
+    struct tm *mytm;
+    time_t t;
+    struct timeval tv;
+    t = time(NULL);
+    mytm = gmtime(&t);
+    strftime(buf, buflen, "%Y-%m-%d:%H:%M:%S.", mytm);
+    gettimeofday(&tv, NULL);
+    sprintf(tmp, "%06ld", (long)tv.tv_usec);
+    strcat(buf, tmp);
+    return buf;
 }
 
 

@@ -166,16 +166,12 @@ int dumpcaps_rot(ROT *rot, FILE *fout)
     fprintf(fout, "Extra functions:\n");
     rot_ext_func_foreach(rot, print_ext, fout);
 
-    rot_sprintf_level_gran(prntbuf, sizeof(prntbuf), caps->has_get_level, caps->level_gran);
+    rot_sprintf_level_gran(prntbuf, sizeof(prntbuf), caps->has_get_level,
+                           caps->level_gran);
     fprintf(fout, "Get level: %s\n", prntbuf);
 
-    if ((caps->has_get_level & RIG_LEVEL_SQLSTAT))
-    {
-        fprintf(fout, "Warning--backend uses deprecated SQLSTAT level!\n");
-        backend_warnings++;
-    }
-
-    rot_sprintf_level_gran(prntbuf, sizeof(prntbuf), caps->has_set_level, caps->level_gran);
+    rot_sprintf_level_gran(prntbuf, sizeof(prntbuf), caps->has_set_level,
+                           caps->level_gran);
     fprintf(fout, "Set level: %s\n", prntbuf);
 
     if (caps->has_set_level & ROT_LEVEL_READONLY_LIST)
@@ -187,10 +183,12 @@ int dumpcaps_rot(ROT *rot, FILE *fout)
     fprintf(fout, "Extra levels:\n");
     rot_ext_level_foreach(rot, print_ext, fout);
 
-    rot_sprintf_parm_gran(prntbuf, sizeof(prntbuf), caps->has_get_parm, caps->parm_gran);
+    rot_sprintf_parm_gran(prntbuf, sizeof(prntbuf), caps->has_get_parm,
+                          caps->parm_gran);
     fprintf(fout, "Get parameters: %s\n", prntbuf);
 
-    rot_sprintf_parm_gran(prntbuf, sizeof(prntbuf), caps->has_set_parm, caps->parm_gran);
+    rot_sprintf_parm_gran(prntbuf, sizeof(prntbuf), caps->has_set_parm,
+                          caps->parm_gran);
     fprintf(fout, "Set parameters: %s\n", prntbuf);
 
     if (caps->has_set_parm & ROT_PARM_READONLY_LIST)

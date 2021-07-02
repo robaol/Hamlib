@@ -510,7 +510,8 @@ int newcat_open(RIG *rig)
 
     ENTERFUNC;
 
-    rig_debug(RIG_DEBUG_TRACE, "%s: Rig=%s, version=%s\n", __func__, rig->caps->model_name, rig->caps->version);
+    rig_debug(RIG_DEBUG_TRACE, "%s: Rig=%s, version=%s\n", __func__,
+              rig->caps->model_name, rig->caps->version);
     rig_debug(RIG_DEBUG_TRACE, "%s: write_delay = %i msec\n",
               __func__, rig_s->rigport.write_delay);
 
@@ -597,6 +598,7 @@ int newcat_close(RIG *rig)
                                                    case it's not
                                                    supported */
     }
+
     if (priv->poweron != 0 && rig_s->auto_power_off)
     {
         rig_set_powerstat(rig, 0);
@@ -770,6 +772,7 @@ int newcat_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     {
     case RIG_VFO_A:
     case RIG_VFO_MAIN:
+    case RIG_VFO_MEM:
         c = 'A';
         break;
 
@@ -803,13 +806,26 @@ int newcat_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     if (is_ftdx3000 || is_ftdx5000)
     {
         // we have a few rigs that can't set freq while PTT_ON
+        // so we'll try a few times to see if we just need to wait a bit
+        // 3 retries should be about 400ms -- hopefully more than enough
         ptt_t ptt;
+        int retry = 3;
 
-        if (RIG_OK != (err = newcat_get_ptt(rig, vfo, &ptt)))
+        do
         {
-            ERRMSG(err, "newcat_set_cmd failed");
-            RETURNFUNC(err);
+            if (RIG_OK != (err = newcat_get_ptt(rig, vfo, &ptt)))
+            {
+                ERRMSG(err, "newcat_set_cmd failed");
+                RETURNFUNC(err);
+            }
+
+            if (ptt == RIG_PTT_ON)
+            {
+                rig_debug(RIG_DEBUG_WARN, "%s: ptt still on...retry#%d\n", __func__, retry);
+                hl_usleep(100 * 1000); // 100ms pause if ptt still on
+            }
         }
+        while (err == RIG_OK && ptt == RIG_PTT_ON && retry-- > 0);
 
         if (ptt) { return RIG_ENTARGET; }
     }
@@ -892,8 +908,10 @@ int newcat_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
             && !rig->state.disable_yaesu_bandselect
             // remove the split check here -- hopefully works OK
             //&& !rig->state.cache.split
+            // seems some rigs are problematic
+            && !(is_ftdx3000)
             // some rigs can't do BS command on 60M
-            && !(is_ftdx3000 && newcat_band_index(freq) == 2)
+            // && !(is_ftdx3000 && newcat_band_index(freq) == 2)
             && !(is_ft2000 && newcat_band_index(freq) == 2)
             && !(is_ftdx1200 && newcat_band_index(freq) == 2)
             && !is_ft891 // 891 does not remember bandwidth so don't do this
@@ -3182,7 +3200,8 @@ int newcat_set_powerstat(RIG *rig, powerstat_t status)
 
             rig_debug(RIG_DEBUG_TRACE, "%s: Wait #%d for power up\n", __func__, i + 1);
             retval = write_block(&state->rigport, priv->cmd_str, strlen(priv->cmd_str));
-            if (retval != RIG_OK) RETURNFUNC(retval);
+
+            if (retval != RIG_OK) { RETURNFUNC(retval); }
         }
     }
 
@@ -3471,7 +3490,8 @@ int newcat_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 
         fpf = newcat_scale_float(scale, val.f);
 
-        if (is_ft950 || is_ft891 || is_ft991 || is_ftdx3000 || is_ftdx101d || is_ftdx101mp || is_ftdx10)
+        if (is_ft950 || is_ft891 || is_ft991 || is_ftdx3000 || is_ftdx101d
+                || is_ftdx101mp || is_ftdx10)
         {
             // Minimum is 5 watts on these rigs
             if (fpf < 5)
@@ -3661,7 +3681,8 @@ int newcat_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 
         if (val.f > 1.0) { RETURNFUNC(-RIG_EINVAL); }
 
-        if (is_ftdx1200 || is_ftdx3000 || is_ft891 || is_ft991 || is_ftdx101d || is_ftdx101mp
+        if (is_ftdx1200 || is_ftdx3000 || is_ft891 || is_ft991 || is_ftdx101d
+                || is_ftdx101mp
                 || is_ftdx10)
         {
             fpf = newcat_scale_float(100, val.f);
@@ -3691,7 +3712,8 @@ int newcat_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             RETURNFUNC(-RIG_ENAVAIL);
         }
 
-        if (is_ftdx101d || is_ftdx101mp) // new format for the command with VFO selection
+        if (is_ftdx101d
+                || is_ftdx101mp) // new format for the command with VFO selection
         {
             format = "MS0%d;";
 
@@ -4093,7 +4115,7 @@ int newcat_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
             RETURNFUNC(-RIG_ENAVAIL);
         }
 
-        if (is_ft2000 || is_ftdx9000 || is_ftdx5000)
+        if (is_ft2000 || is_ftdx9000 || is_ftdx5000 || is_ft450)
         {
             scale = 255;
         }
@@ -4216,7 +4238,8 @@ int newcat_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
 
         if (val.f > 1.0) { RETURNFUNC(-RIG_EINVAL); }
 
-        if (is_ftdx1200 || is_ftdx3000 || is_ft891 || is_ft991 || is_ftdx101d || is_ftdx101mp
+        if (is_ftdx1200 || is_ftdx3000 || is_ft891 || is_ft991 || is_ftdx101d
+                || is_ftdx101mp
                 || is_ftdx10)
         {
             fpf = newcat_scale_float(100, val.f);
@@ -4546,12 +4569,6 @@ int newcat_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         {
             snprintf(priv->cmd_str, sizeof(priv->cmd_str), "RM08%c", cat_term);
         }
-
-        if (is_ftdx101d || is_ftdx101mp)
-        {
-            // separate meters for Main and Sub
-            snprintf(priv->cmd_str, sizeof(priv->cmd_str), "RM0%c", cat_term);
-        }
         else
         {
             snprintf(priv->cmd_str, sizeof(priv->cmd_str), "RM5%c", cat_term);
@@ -4707,7 +4724,7 @@ int newcat_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
 
     case RIG_LEVEL_VOXGAIN:
     case RIG_LEVEL_COMP:
-        if (is_ft2000 || is_ftdx9000 || is_ftdx5000)
+        if (is_ft2000 || is_ftdx9000 || is_ftdx5000 || is_ft450)
         {
             scale = 255;
         }
@@ -4859,7 +4876,8 @@ int newcat_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_MICGAIN:
-        if (is_ftdx1200 || is_ftdx3000 || is_ft891 || is_ft991 || is_ftdx101d || is_ftdx101mp
+        if (is_ftdx1200 || is_ftdx3000 || is_ft891 || is_ft991 || is_ftdx101d
+                || is_ftdx101mp
                 || is_ftdx10)
         {
             scale = 100.;
@@ -5171,7 +5189,8 @@ int newcat_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
         break;
 
     case RIG_LEVEL_MONITOR_GAIN:
-        if (is_ftdx1200 || is_ftdx3000 || is_ft891 || is_ft991 || is_ftdx101d || is_ftdx101mp)
+        if (is_ftdx1200 || is_ftdx3000 || is_ft891 || is_ft991 || is_ftdx101d
+                || is_ftdx101mp)
         {
             scale = 100.;
         }
@@ -5422,7 +5441,8 @@ int newcat_set_func(RIG *rig, vfo_t vfo, setting_t func, int status)
             newcat_get_mode(rig, vfo, &mode, &width);
         }
 
-        if (is_ft891 || is_ft991 || is_ftdx1200 || is_ftdx3000 || is_ftdx101d || is_ftdx101mp)
+        if (is_ft891 || is_ft991 || is_ftdx1200 || is_ftdx3000 || is_ftdx101d
+                || is_ftdx101mp)
         {
             // There seems to be an error in the manuals for some of these rigs stating that values should be 1 = OFF and 2 = ON, but they are 0 = OFF and 1 = ON instead
             snprintf(priv->cmd_str, sizeof(priv->cmd_str), "PR0%d%c", status ? 1 : 0,
@@ -5662,7 +5682,8 @@ int newcat_get_func(RIG *rig, vfo_t vfo, setting_t func, int *status)
             RETURNFUNC(-RIG_ENAVAIL);
         }
 
-        if (is_ftdx1200 || is_ftdx3000 || is_ft891 || is_ft991 || is_ftdx101d || is_ftdx101mp)
+        if (is_ftdx1200 || is_ftdx3000 || is_ft891 || is_ft991 || is_ftdx101d
+                || is_ftdx101mp)
         {
             snprintf(priv->cmd_str, sizeof(priv->cmd_str), "PR0%c", cat_term);
         }
@@ -6567,13 +6588,13 @@ const char *newcat_get_info(RIG *rig)
     /* Get Identification Channel */
     if (RIG_OK != newcat_get_cmd(rig))
     {
-        return(NULL);
+        return (NULL);
     }
 
     priv->ret_data[6] = '\0';
     snprintf(idbuf, sizeof(idbuf), "%s", priv->ret_data);
 
-    return(idbuf);
+    return (idbuf);
 }
 
 
@@ -6623,7 +6644,8 @@ ncboolean newcat_valid_command(RIG *rig, char const *const command)
     is_ftdx10 = newcat_is_rig(rig, RIG_MODEL_FTDX10);
 
     if (!is_ft450 && !is_ft950 && !is_ft891 && !is_ft991 && !is_ft2000
-            && !is_ftdx5000 && !is_ftdx9000 && !is_ftdx1200 && !is_ftdx3000 && !is_ftdx101d && !is_ftdx101mp && !is_ftdx10)
+            && !is_ftdx5000 && !is_ftdx9000 && !is_ftdx1200 && !is_ftdx3000 && !is_ftdx101d
+            && !is_ftdx101mp && !is_ftdx10)
     {
         rig_debug(RIG_DEBUG_ERR, "%s: '%s' is unknown\n", __func__, caps->model_name);
         RETURNFUNC(FALSE);
@@ -7972,7 +7994,7 @@ static int set_roofing_filter(RIG *rig, vfo_t vfo, int index)
 
     roofing_filters = priv_caps->roofing_filters;
 
-    if (rig->caps->targetable_vfo & RIG_TARGETABLE_MODE)
+    if (rig->caps->targetable_vfo & RIG_TARGETABLE_ROOFING)
     {
         main_sub_vfo = (RIG_VFO_B == vfo || RIG_VFO_SUB == vfo) ? '1' : '0';
     }
@@ -8078,7 +8100,7 @@ static int get_roofing_filter(RIG *rig, vfo_t vfo,
 
     roofing_filters = priv_caps->roofing_filters;
 
-    if (rig->caps->targetable_vfo & RIG_TARGETABLE_MODE)
+    if (rig->caps->targetable_vfo & RIG_TARGETABLE_ROOFING)
     {
         main_sub_vfo = (RIG_VFO_B == vfo || RIG_VFO_SUB == vfo) ? '1' : '0';
     }
@@ -9689,7 +9711,7 @@ int newcat_set_cmd_validate(RIG *rig)
 
     // For FA and FB rig.c now tries to verify the set_freq actually works
     // For example the FT-2000 can't do a FA set followed by an immediate read
-    // We were using "ID" to verify the command but rig.c now does 
+    // We were using "ID" to verify the command but rig.c now does
     // a verifcation of frequency and retries if it doesn't match
     if ((strncmp(priv->cmd_str, "FA", 2) == 0) && (strlen(priv->cmd_str) > 3))
     {

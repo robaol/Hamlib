@@ -23,8 +23,9 @@
 #define _PRM80_H 1
 
 #include <hamlib/rig.h>
+#include "misc.h"
 
-#define BACKEND_VER "20210306"
+#define BACKEND_VER "20210416"
 
 #define PRM80_MEM_CAP {    \
         .freq = 1,  \
@@ -37,6 +38,8 @@ struct prm80_priv_data
     freq_t rx_freq;  /* last RX freq set */
     freq_t tx_freq;  /* last TX freq set */
     split_t split;   /* emulated split on/off */
+    struct timeval status_tv; /* date of last "E" command */
+    char cached_statebuf[32]; /* response of last "E" command */
 };
 
 int prm80_init(RIG *rig);
