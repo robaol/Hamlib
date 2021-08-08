@@ -869,6 +869,7 @@ static struct
     { RIG_LEVEL_SPECTRUM_REF, "SPECTRUM_REF" },
     { RIG_LEVEL_SPECTRUM_AVG, "SPECTRUM_AVG" },
     { RIG_LEVEL_SPECTRUM_ATT, "SPECTRUM_ATT" },
+    { RIG_LEVEL_TEMP_METER, "TEMP_METER" },
     { RIG_LEVEL_NONE, "" },
 };
 
@@ -1724,7 +1725,7 @@ int HAMLIB_API rig_set_cache_timeout_ms(RIG *rig, hamlib_cache_t selection,
 // we're mappping our VFO here to work with either VFO A/B rigs or Main/Sub
 // Hamlib uses VFO_A  and VFO_B as TX/RX as of 2021-04-13
 // So we map these to Main/Sub as required
-vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo)
+vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo, split_t split)
 {
     rig_debug(RIG_DEBUG_TRACE, "%s: vfo=%s, vfo_curr=%s\n", __func__,
               rig_strvfo(vfo), rig_strvfo(rig->state.current_vfo));
@@ -1735,17 +1736,18 @@ vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo)
         return vfo;  // don't modify vfo for RIG_VFO_CURR
     }
 
-    if (vfo == RIG_VFO_RX || vfo == RIG_VFO_A)
+    if (vfo == RIG_VFO_RX || vfo == RIG_VFO_A || vfo == RIG_VFO_MAIN)
     {
-        vfo = RIG_VFO_A;
+        vfo = RIG_VFO_A; // default to mapping VFO_MAIN to VFO_A
 
         if (VFO_HAS_MAIN_SUB_ONLY) { vfo = RIG_VFO_MAIN; }
 
         if (VFO_HAS_MAIN_SUB_A_B_ONLY) { vfo = RIG_VFO_MAIN; }
     }
 
-    else if (vfo == RIG_VFO_TX || vfo == RIG_VFO_B)
+    else if (vfo == RIG_VFO_TX)
     {
+#if 0
         int retval;
         split_t split = 0;
         // get split if we can -- it will default to off otherwise
@@ -1759,12 +1761,11 @@ vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo)
         {
             split = rig->state.cache.split;
         }
+#endif
 
         int satmode = rig->state.cache.satmode;
 
-        if (vfo == RIG_VFO_TX) { vfo = RIG_VFO_A; }
-
-        if (split) { vfo = RIG_VFO_B; }
+        if (split && vfo == RIG_VFO_TX) { vfo = RIG_VFO_B; }
 
         if (VFO_HAS_MAIN_SUB_ONLY && !split && !satmode && vfo != RIG_VFO_B) { vfo = RIG_VFO_MAIN; }
 
@@ -1781,6 +1782,10 @@ vfo_t HAMLIB_API vfo_fixup(RIG *rig, vfo_t vfo)
     else if (vfo == RIG_VFO_B)
 
     {
+        if (VFO_HAS_MAIN_SUB_ONLY) { vfo = RIG_VFO_SUB; }
+
+        if (VFO_HAS_MAIN_SUB_A_B_ONLY) { vfo = RIG_VFO_SUB; }
+
         rig_debug(RIG_DEBUG_TRACE, "%s: final vfo=%s\n", __func__, rig_strvfo(vfo));
     }
 

@@ -431,9 +431,13 @@ static int dummy_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     {
     case RIG_VFO_MAIN:
     case RIG_VFO_A: priv->vfo_a.freq = freq; break;
+    case RIG_VFO_MAIN_A: priv->vfo_maina.freq = freq; break;
+    case RIG_VFO_MAIN_B: priv->vfo_mainb.freq = freq; break;
 
     case RIG_VFO_SUB:
     case RIG_VFO_B: priv->vfo_b.freq = freq; break;
+    case RIG_VFO_SUB_A: priv->vfo_suba.freq = freq; break;
+    case RIG_VFO_SUB_B: priv->vfo_subb.freq = freq; break;
 
     case RIG_VFO_C: priv->vfo_c.freq = freq; break;
     }
@@ -474,7 +478,7 @@ static int dummy_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
     case RIG_VFO_MAIN:
     case RIG_VFO_A:  *freq = priv->vfo_a.freq; break;
     case RIG_VFO_MAIN_A: *freq = priv->vfo_maina.freq;break;
-    case RIG_VFO_MAIN_B: *freq = priv->vfo_maina.freq;break;
+    case RIG_VFO_MAIN_B: *freq = priv->vfo_mainb.freq;break;
 
     case RIG_VFO_SUB:
     case RIG_VFO_B:  *freq = priv->vfo_b.freq; break;
@@ -503,7 +507,7 @@ static int dummy_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     rig_debug(RIG_DEBUG_VERBOSE, "%s called: %s %s %s\n", __func__,
               rig_strvfo(vfo), rig_strrmode(mode), buf);
 
-    vfo = vfo_fixup(rig, vfo);
+    vfo = vfo_fixup(rig, vfo, rig->state.cache.split);
     switch (vfo)
     {
     case RIG_VFO_MAIN:
@@ -518,7 +522,7 @@ static int dummy_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
         RETURNFUNC(-RIG_EINVAL);
     }
 
-    vfo = vfo_fixup(rig, vfo);
+    vfo = vfo_fixup(rig, vfo, rig->state.cache.split);
 
     if (RIG_PASSBAND_NOCHANGE == width) { RETURNFUNC(RIG_OK); }
 
@@ -2172,7 +2176,7 @@ struct rig_caps dummy_caps =
     RIG_MODEL(RIG_MODEL_DUMMY),
     .model_name =     "Dummy",
     .mfg_name =       "Hamlib",
-    .version =        "20210630.0",
+    .version =        "20210705.0",
     .copyright =      "LGPL",
     .status =         RIG_STATUS_STABLE,
     .rig_type =       RIG_TYPE_OTHER,

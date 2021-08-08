@@ -198,8 +198,6 @@ static const char *rigerror_table[] =
 
 #define ERROR_TBL_SZ (sizeof(rigerror_table)/sizeof(char *))
 
-#define TRACE rig_debug(RIG_DEBUG_TRACE,"%s(%d) trace\n", __FILE__, __LINE__)
-
 /*
  * track which rig is opened (with rig_open)
  * needed at least for transceive mode
@@ -367,6 +365,16 @@ static void cache_show(RIG *rig, const char *func, int line)
               "%s(%d): freqMainB=%.0f, modeMainB=%s, widthMainB=%d\n", func, line,
               rig->state.cache.freqMainB, rig_strrmode(rig->state.cache.modeMainB),
               (int)rig->state.cache.widthMainB);
+    if (rig->state.vfo_list & RIG_VFO_SUB_A) {
+    rig_debug(RIG_DEBUG_CACHE,
+              "%s(%d): freqSubA=%.0f, modeSubA=%s, widthSubA=%d\n", func, line,
+              rig->state.cache.freqSubA, rig_strrmode(rig->state.cache.modeSubA),
+              (int)rig->state.cache.widthSubA);
+    rig_debug(RIG_DEBUG_CACHE,
+              "%s(%d): freqSubB=%.0f, modeSubB=%s, widthSubB=%d\n", func, line,
+              rig->state.cache.freqSubB, rig_strrmode(rig->state.cache.modeSubB),
+              (int)rig->state.cache.widthSubB);
+    }
 }
 
 /**
@@ -1022,7 +1030,7 @@ int HAMLIB_API rig_open(RIG *rig)
      */
     TRACE;
 
-    if (rig_get_vfo(rig, &rs->current_vfo) == RIG_OK)
+    if (caps->get_vfo && rig_get_vfo(rig, &rs->current_vfo) == RIG_OK)
     {
         rs->tx_vfo = rs->current_vfo;
     }
@@ -1042,7 +1050,7 @@ int HAMLIB_API rig_open(RIG *rig)
         else if (rig->caps->set_vfo == NULL)
         {
             // for non-Icom rigs if there's no set_vfo then we need to set one
-            rs->current_vfo = vfo_fixup(rig, RIG_VFO_A);
+            rs->current_vfo = vfo_fixup(rig, RIG_VFO_A, rig->state.cache.split);
             rig_debug(RIG_DEBUG_TRACE, "%s: No set_vfo function rig so default vfo = %s\n",
                       __func__, rig_strvfo(rs->current_vfo));
         }
@@ -1795,7 +1803,7 @@ int HAMLIB_API rig_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
     }
 
     vfo_save = rig->state.current_vfo;
-    vfo = vfo_fixup(rig, vfo);
+    vfo = vfo_fixup(rig, vfo, rig->state.cache.split);
 
     if ((caps->targetable_vfo & RIG_TARGETABLE_FREQ)
             || vfo == RIG_VFO_CURR || vfo == rig->state.current_vfo)
@@ -1979,7 +1987,7 @@ int HAMLIB_API rig_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
 
     curr_vfo = rig->state.current_vfo; // save vfo for restore later
 
-    vfo = vfo_fixup(rig, vfo);
+    vfo = vfo_fixup(rig, vfo, rig->state.cache.split);
 
     rig_debug(RIG_DEBUG_VERBOSE, "%s(%d) vfo=%s, curr_vfo=%s\n", __FILE__, __LINE__, rig_strvfo(vfo), rig_strvfo(curr_vfo));
 
@@ -2066,7 +2074,7 @@ int HAMLIB_API rig_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
         // If rig does not have set_vfo we need to change vfo
         if (vfo == RIG_VFO_CURR && caps->set_vfo == NULL)
         {
-            vfo = vfo_fixup(rig, RIG_VFO_A);
+            vfo = vfo_fixup(rig, RIG_VFO_A, rig->state.cache.split);
             rig_debug(RIG_DEBUG_TRACE, "%s: no set_vfo so vfo=%s\n", __func__,
                       rig_strvfo(vfo));
         }
@@ -2113,7 +2121,11 @@ int HAMLIB_API rig_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
         TRACE;
         retcode = caps->get_freq(rig, vfo, freq);
         /* try and revert even if we had an error above */
-        rc2 = caps->set_vfo(rig, curr_vfo);
+        rc2 = RIG_OK;
+        if (curr_vfo != RIG_VFO_NONE)
+        {
+            rc2 = caps->set_vfo(rig, curr_vfo);
+        }
 
         if (RIG_OK == retcode)
         {
@@ -2204,6 +2216,13 @@ int HAMLIB_API rig_set_mode(RIG *rig, vfo_t vfo, rmode_t mode, pbwidth_t width)
     if (CHECK_RIG_ARG(rig))
     {
         RETURNFUNC(-RIG_EIO);
+    }
+
+    // do not mess with mode while PTT is on
+    if (rig->state.cache.ptt)
+    {
+        rig_debug(RIG_DEBUG_VERBOSE, "%s PTT on so set_mode ignored\n", __func__);
+        return RIG_OK;
     }
 
     caps = rig->caps;
@@ -2588,10 +2607,11 @@ int HAMLIB_API rig_set_vfo(RIG *rig, vfo_t vfo)
         RETURNFUNC(-RIG_EIO);
     }
 
-    vfo = vfo_fixup(rig, vfo);
+    vfo = vfo_fixup(rig, vfo, rig->state.cache.split);
 
     if (vfo == RIG_VFO_CURR) { RETURNFUNC(RIG_OK); }
 
+#if 0 // removing this check 20210801 -- should be mapped already
     // make sure we are asking for a VFO that the rig actually has
     if ((vfo == RIG_VFO_A || vfo == RIG_VFO_B) && !VFO_HAS_A_B)
     {
@@ -2606,8 +2626,9 @@ int HAMLIB_API rig_set_vfo(RIG *rig, vfo_t vfo)
                   rig_strvfo(vfo));
         RETURNFUNC(-RIG_EINVAL);
     }
+#endif
 
-    vfo = vfo_fixup(rig, vfo);
+    vfo = vfo_fixup(rig, vfo, rig->state.cache.split);
 
     caps = rig->caps;
 
@@ -3729,7 +3750,7 @@ int HAMLIB_API rig_set_split_freq(RIG *rig, vfo_t vfo, freq_t tx_freq)
         RETURNFUNC(retcode);
     }
 
-    vfo = vfo_fixup(rig, vfo);
+    vfo = vfo_fixup(rig, vfo, rig->state.cache.split);
 
 
     /* Assisted mode */
@@ -3853,7 +3874,7 @@ int HAMLIB_API rig_get_split_freq(RIG *rig, vfo_t vfo, freq_t *tx_freq)
         RETURNFUNC(-RIG_EINVAL);
     }
 
-    vfo = vfo_fixup(rig, vfo);
+    vfo = vfo_fixup(rig, vfo, rig->state.cache.split);
 
     caps = rig->caps;
 
@@ -3987,6 +4008,13 @@ int HAMLIB_API rig_set_split_mode(RIG *rig,
     if (CHECK_RIG_ARG(rig))
     {
         RETURNFUNC(-RIG_EIO);
+    }
+
+    // do not mess with mode while PTT is on
+    if (rig->state.cache.ptt)
+    {
+        rig_debug(RIG_DEBUG_VERBOSE, "%s PTT on so set_split_mode ignored\n", __func__);
+        return RIG_OK;
     }
 
     caps = rig->caps;
@@ -4246,9 +4274,7 @@ int HAMLIB_API rig_set_split_freq_mode(RIG *rig,
 
     caps = rig->caps;
 
-    // in split mode we alwasy use VFOB
-    // in the future we may start using RIG_VFO_TX and let the backend figure out what VFO to use
-    vfo = vfo_fixup(rig, RIG_VFO_B); // in split mode we always use VFOB/Sub for TX
+    vfo = vfo_fixup(rig, RIG_VFO_TX, rig->state.cache.split); // get the TX VFO
     rig_debug(RIG_DEBUG_VERBOSE,
               "%s: vfo=%s, tx_freq=%.0f, tx_mode=%s, tx_width=%d\n", __func__,
               rig_strvfo(vfo), tx_freq, rig_strrmode(tx_mode), (int)tx_width);
@@ -4413,7 +4439,15 @@ int HAMLIB_API rig_set_split_vfo(RIG *rig,
         RETURNFUNC(-RIG_ENAVAIL);
     }
 
-    vfo = vfo_fixup(rig, vfo);
+    vfo = vfo_fixup(rig, vfo, split);
+
+    if (vfo != RIG_VFO_A && vfo != RIG_VFO_B)
+    {
+        rig_debug(RIG_DEBUG_ERR, "%s: expected VFOA/B but got %s\n", __func__, rig_strvfo(vfo));
+    }
+    // set rig to the the requested RX VFO
+    TRACE;
+    rig_set_vfo(rig, vfo == RIG_VFO_B?RIG_VFO_B:RIG_VFO_A);
 
     if (vfo == RIG_VFO_CURR
             || vfo == rig->state.current_vfo)
@@ -6359,8 +6393,8 @@ int HAMLIB_API rig_get_rig_info(RIG *rig, char *response, int max_response_len)
     int rxa, txa, rxb, txb;
     response[0] = 0;
 
-    vfoA = vfo_fixup(rig, RIG_VFO_A);
-    vfoB = vfo_fixup(rig, RIG_VFO_B);
+    vfoA = vfo_fixup(rig, RIG_VFO_A, rig->state.cache.split);
+    vfoB = vfo_fixup(rig, RIG_VFO_B, rig->state.cache.split);
     ret = rig_get_vfo_info(rig, vfoA, &freqA, &modeA, &widthA, &split, &satmode);
 
     if (ret != RIG_OK) { RETURNFUNC(ret); }
@@ -6447,7 +6481,7 @@ int HAMLIB_API rig_get_vfo_info(RIG *rig, vfo_t vfo, freq_t *freq,
 
     //if (vfo == RIG_VFO_CURR) { vfo = rig->state.current_vfo; }
 
-    vfo = vfo_fixup(rig, vfo);
+    vfo = vfo_fixup(rig, vfo, rig->state.cache.split);
     // we can't use the cached values as some clients may only call this function
     // like Log4OM which mostly does polling
     TRACE;

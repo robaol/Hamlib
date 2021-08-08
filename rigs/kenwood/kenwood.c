@@ -119,6 +119,7 @@ static const struct kenwood_id_string kenwood_id_string_list[] =
     { RIG_MODEL_TS590S, "021" },
     { RIG_MODEL_TS990S, "022" },
     { RIG_MODEL_TS590SG,  "023" },
+    { RIG_MODEL_TS890S,  "024" },
     { RIG_MODEL_THD7A,  "TH-D7" },
     { RIG_MODEL_THD7AG, "TH-D7G" },
     { RIG_MODEL_TMD700, "TM-D700" },
@@ -909,6 +910,7 @@ int kenwood_open(RIG *rig)
     /* compare id string */
     for (i = 0; kenwood_id_string_list[i].model != RIG_MODEL_NONE; i++)
     {
+        //rig_debug(RIG_DEBUG_ERR, "%s: comparing '%s'=='%s'\n", __func__, kenwood_id_string_list[i].id, idptr);
         if (strcmp(kenwood_id_string_list[i].id, idptr) != 0)
         {
             continue;
@@ -952,6 +954,12 @@ int kenwood_open(RIG *rig)
             }
 
             rig->state.rigport.retry = retry_save;
+
+            // Default to 1st VFO and split off
+            if (rig->caps->set_vfo) {
+                rig_set_vfo(rig, vfo_fixup(rig, RIG_VFO_A, 0));
+            }
+
             RETURNFUNC(RIG_OK);
         }
 
@@ -1121,6 +1129,11 @@ int kenwood_set_vfo(RIG *rig, vfo_t vfo)
     {
         RETURNFUNC(RIG_OK);
     }
+    // some rigs need split turned on after VFOA is set
+    if (vfo == RIG_VFO_A && priv->split == RIG_SPLIT_ON)
+    {
+        rig_set_split_vfo(rig, RIG_VFO_CURR, 1, priv->tx_vfo);
+    }
 
     /* set TX VFO */
     cmdbuf[1] = 'T';
@@ -1273,15 +1286,14 @@ int kenwood_set_split_vfo(RIG *rig, vfo_t vfo, split_t split, vfo_t txvfo)
 
     priv->tx_vfo = txvfo;
 
-    if (RIG_IS_K2 || RIG_IS_K3)
+    /* do not attempt redundant split change commands on Elecraft as
+       they impact output power when transmitting 
+       and all other rigs don't need to set it if it's already set correctly 
+    */
+    if (RIG_OK == (retval = kenwood_safe_transaction(rig, "FT", cmdbuf,
+                            sizeof(cmdbuf), 3)))
     {
-        /* do not attempt redundant split change commands on Elecraft as
-           they impact output power when transmitting */
-        if (RIG_OK == (retval = kenwood_safe_transaction(rig, "FT", cmdbuf,
-                                sizeof(cmdbuf), 3)))
-        {
-            if (cmdbuf[2] == vfo_function) { RETURNFUNC(RIG_OK); }
-        }
+        if (cmdbuf[2] == vfo_function) { RETURNFUNC(RIG_OK); }
     }
 
     /* set TX VFO */
