@@ -169,7 +169,9 @@
 #define ICM710ITU_LEVEL_ALL (RIG_LEVEL_RAWSTR |RIG_LEVEL_AF | RIG_LEVEL_RF | \
                              RIG_LEVEL_RFPOWER | RIG_LEVEL_RFPOWER_METER | RIG_LEVEL_AGC)
 
-#define ICM710ITU_VFO_ALL (RIG_VFO_A)
+#define ICM710ITU_VFO_ALL (RIG_VFO_A | RIG_VFO_B)
+
+#define ICM710ITU_TARGETABLE_VFO (RIG_TARGETABLE_FREQ)
 
 #define ICMARINE_TUNER_TIMEOUTMS    (10000)
 #define ICM710ITU_VFO_OPS (RIG_OP_TUNE)
@@ -239,7 +241,7 @@ const struct rig_caps icm710itu_caps =
         .max_rit = Hz(0),
         .max_xit = Hz(0),
         .max_ifshift = Hz(0),
-        .targetable_vfo = 0,
+        .targetable_vfo = ICM710ITU_TARGETABLE_VFO,
         .vfo_ops = ICM710ITU_VFO_OPS,
         //.scan_ops =  ICM710ITU_SCAN_OPS,
         .transceive = RIG_TRN_OFF,
@@ -306,7 +308,7 @@ const struct rig_caps icm710itu_caps =
         .rig_close = NULL,
 
         .set_freq = icm710itu_set_freq,
-        .get_freq = icmarine_get_freq,
+        .get_freq = icm710itu_get_freq,
         .set_split_freq = icm710itu_set_tx_freq,
         .get_split_freq = icmarine_get_tx_freq,
         .set_split_vfo = icm710itu_set_split_vfo,
@@ -396,6 +398,49 @@ int icm710itu_init(RIG *rig)
     return RIG_OK;
 }
 
+/*
+ * icm710itu_get_freq
+ * Assumes rig!=NULL, freq!=NULL
+ */
+int icm710itu_get_freq(RIG *rig, vfo_t vfo, freq_t *freq)
+{
+    int retval;
+    char freqbuf[BUFSZ] = "";
+    double d;
+    int getTXF = 0;
+
+    rig_debug(RIG_DEBUG_TRACE, "%s:\n", __func__);
+
+    if (vfo == RIG_VFO_B || vfo == RIG_VFO_TX)
+    {
+        getTXF = 1;
+    }
+
+    retval = icmarine_transaction(rig, getTXF? CMD_TXFREQ : CMD_RXFREQ, NULL, freqbuf);
+
+    if (retval != RIG_OK)
+    {
+        return retval;
+    }
+
+    if (freqbuf[0] == '\0')
+    {
+        *freq = 0;
+    }
+    else
+    {
+        if (sscanf(freqbuf, "%lf", &d) != 1)
+        {
+            rig_debug(RIG_DEBUG_ERR, "%s: sscanf('%s') failed\n", __func__, freqbuf);
+            return -RIG_EPROTO;
+        }
+
+        *freq = (freq_t)(d * MHz(1));
+    }
+
+    return RIG_OK;
+}
+
 int icm710itu_set_freq(RIG *rig, vfo_t vfo, freq_t freq)
 {
     char freqbuf[BUFSZ];
@@ -462,7 +507,7 @@ int icm710itu_set_split_vfo(RIG *rig, vfo_t rx_vfo, split_t split, vfo_t tx_vfo)
         RIG_SPLIT_OFF == split)
     {
         freq_t freq;
-        retval = icmarine_get_freq(rig, rx_vfo, &freq);
+        retval = icm710itu_get_freq(rig, rx_vfo, &freq);
         if (RIG_OK == retval)
         {
             retval = icm710itu_set_tx_freq(rig, rx_vfo, freq);
