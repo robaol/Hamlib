@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(gdb) rigctl",
+            "name": "(gdb) rigctl list caps",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/../build/tests/.libs/rigctl",
@@ -13,7 +13,7 @@
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [{"name":"LD_LIBRARY_PATH", "value": "${workspaceFolder}/../build/src/.libs:$LD_LIBRARY_PATH"}],
-            "externalConsole": false,
+            "externalConsole": true,
             "MIMode": "gdb",
             "setupCommands": [
                 {
@@ -24,5 +24,24 @@
             ]
         }
 
+        ,{
+            "name": "(gdb) rigctl",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/../build/tests/.libs/rigctl",
+            "args": ["-m 30005", "-r", "/dev/ttyUSB0", "-vvvvv"],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}",
+            "environment": [{"name":"LD_LIBRARY_PATH", "value": "${workspaceFolder}/../build/src/.libs:$LD_LIBRARY_PATH"}],
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
     ]
 }
