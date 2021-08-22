@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(gdb) Launch rigctl",
+            "name": "(gdb) rigctl",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/../build/tests/.libs/rigctl",
