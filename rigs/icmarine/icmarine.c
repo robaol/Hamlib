@@ -851,7 +851,7 @@ int icmarine_get_level(RIG *rig, vfo_t vfo, setting_t level, value_t *val)
             return -RIG_EPROTO;
         }
 
-        val->f = (float)(lvlbuf[0] - '1') / 3.;
+        val->f = (float)(lvlbuf[0] - '0') / 3.;
         break;
 
     case RIG_LEVEL_RFPOWER_METER:
