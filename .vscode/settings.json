@@ -1,0 +1,9 @@
+{
+    "makefile.extensionOutputFolder": ".vscode",
+    "makefile.buildLog": "",
+    "makefile.configurationCachePath": "../vscode/configurationCache.log",
+    "makefile.makeDirectory": "../build",
+    "makefile.configurations": [
+           
+    ]
+}

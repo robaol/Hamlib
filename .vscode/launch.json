@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        
         {
             "name": "(gdb) rigctl list caps",
             "type": "cppdbg",
@@ -29,7 +30,26 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/../build/tests/.libs/rigctl",
-            "args": ["-m 30005", "-r", "/dev/ttyUSB0", "-vvvvv"],
+            "args": ["-m 30005", "-r", "/dev/ttyUSB0", "-vvvvvv"],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}",
+            "environment": [{"name":"LD_LIBRARY_PATH", "value": "${workspaceFolder}/../build/src/.libs:$LD_LIBRARY_PATH"}],
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+        ,{
+            "name": "(gdb) vfo mode rigctl",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/../build/tests/.libs/rigctl",
+            "args": ["-m 30005", "-r", "/dev/ttyUSB0", "-vvvvvv", "-o"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [{"name":"LD_LIBRARY_PATH", "value": "${workspaceFolder}/../build/src/.libs:$LD_LIBRARY_PATH"}],
