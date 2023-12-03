@@ -48,7 +48,7 @@ struct icm710itu_priv_data {
     unsigned char remote_id;  /* the remote equipment's ID */
     split_t split; /* current split mode */
     char *mode_str[NUM_MODE_STR]; /* number of modes defined */
-    int flagTuneOnNewTxfreq; /* Control whether to issue TUNER:TUNE commands */
+    int flagTuneOnNewTxfreq; /* Control whether to issue TUNER:ON commands */
     freq_t lastTunedTxfreq; /* Allow detection of new txfreq */
     int tuneTimeout; /* in ms. Tuning takes a long time, so need a longer timeout */
 
@@ -60,6 +60,7 @@ int icm710itu_init(RIG *rig);
 int icm710itu_get_freq(RIG *rig, vfo_t vfo, freq_t *freq);
 int icm710itu_set_freq(RIG *rig, vfo_t vfo, freq_t freq);
 int icm710itu_set_tx_freq(RIG *rig, vfo_t vfo, freq_t freq);
+int icm710itu_get_split_vfo(RIG *rig, vfo_t rx_vfo, split_t *split, vfo_t *tx_vfo);
 int icm710itu_set_split_vfo(RIG *rig, vfo_t rx_vfo, split_t split, vfo_t tx_vfo);
 int icm710itu_vfo_op(RIG *rig, vfo_t vfo, vfo_op_t op);
 int icm710itu_set_func(RIG *rig, vfo_t vfo, setting_t func, int status);

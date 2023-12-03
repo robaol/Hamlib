@@ -312,7 +312,7 @@ const struct rig_caps icm710itu_caps =
         .set_split_freq = icm710itu_set_tx_freq,
         .get_split_freq = icmarine_get_tx_freq,
         .set_split_vfo = icm710itu_set_split_vfo,
-        .get_split_vfo = icmarine_get_split_vfo,
+        .get_split_vfo = icm710itu_get_split_vfo,
         .set_mode = icmarine_set_mode,
         .get_mode = icmarine_get_mode,
 
@@ -493,6 +493,34 @@ int icm710itu_set_tx_freq(RIG *rig, vfo_t vfo, freq_t freq)
         }        
     }
     return retval;
+}
+
+int icm710itu_get_split_vfo(RIG *rig, vfo_t rx_vfo, split_t *split,
+                           vfo_t *tx_vfo)
+{
+    struct icm710itu_priv_data *priv;
+
+    rig_debug(RIG_DEBUG_TRACE, "%s:\n", __func__);
+
+    priv = (struct icm710itu_priv_data *)rig->state.priv;
+
+    *split = priv->split;
+    if (*split == RIG_SPLIT_OFF)
+    {
+        *tx_vfo = rx_vfo;        
+    }
+    else
+    {
+        if (rx_vfo == RIG_VFO_B || rx_vfo == RIG_VFO_SUB)
+        {
+            rig_debug(RIG_DEBUG_VERBOSE, "%s ********************** called vfo=%s\n",
+                      __func__, rig_strvfo(rx_vfo));
+        }
+
+        *tx_vfo = RIG_VFO_B;
+    }
+
+    return RIG_OK;
 }
 
 int icm710itu_set_split_vfo(RIG *rig, vfo_t rx_vfo, split_t split, vfo_t tx_vfo)
