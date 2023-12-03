@@ -770,8 +770,24 @@ int icmarine_set_level(RIG *rig, vfo_t vfo, setting_t level, value_t val)
         break;
 
     case RIG_LEVEL_RFPOWER:
+#ifdef ICM_NEW_RFPOWER_SCALING
+    {
+        unsigned rigval = 1;
+        if (val.f > 0.3333)
+        {
+            rigval = 2;
+        }
+        if (val.f > 0.6666)
+        {
+            rigval = 3;
+        }
+        sprintf(lvlbuf, "%u", rigval);
+    }
+#else
         sprintf(lvlbuf, "%u", 1 + (unsigned)(val.f * 2));
+#endif
         retval = icmarine_transaction(rig, CMD_RFPWR, lvlbuf, NULL);
+
         break;
 
     case RIG_LEVEL_AGC:
